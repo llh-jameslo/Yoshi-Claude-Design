@@ -1,0 +1,361 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<template id="__bundler_thumbnail" data-bg-color="#E9E6F8">
+  <svg viewBox="0 0 1200 800" xmlns="http://www.w3.org/2000/svg">
+    <rect width="1200" height="800" fill="#E9E6F8"/>
+    <text x="120" y="300" font-family="Geist, sans-serif" font-size="120" font-weight="500" fill="#17151C">Fuibo</text>
+    <text x="120" y="430" font-family="Geist, sans-serif" font-size="120" font-weight="500" fill="#17151C">Flower</text>
+    <circle cx="960" cy="560" r="110" fill="#C05A3C"/>
+    <rect x="915" y="530" width="90" height="66" rx="26" fill="#FFF8F3"/>
+  </svg>
+</template>
+<x-dc>
+<helmet data-dc-atomics="">
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;display=swap">
+<style>
+body{margin:0;background:#F0EEE9;font-family:'Geist',system-ui,sans-serif;padding:120px 160px}
+a{color:#C05A3C}a:hover{color:#A63A22}
+@keyframes fuiboDropIn{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fuiboScrimIn{from{opacity:0}to{opacity:1}}
+@keyframes fuiboMsgIn{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:translateY(0)}}
+@keyframes fuiboSheetIn{from{opacity:0;transform:translateY(12px) scale(.98)}to{opacity:1;transform:translateY(0) scale(1)}}
+/* auto-hiding, chrome-less scrollbar (pseudo-els can't be inline) */
+.fuibo-scroll::-webkit-scrollbar{width:5px;height:5px}
+.fuibo-scroll::-webkit-scrollbar-track{background:transparent}
+.fuibo-scroll::-webkit-scrollbar-button{display:none;width:0;height:0}
+.fuibo-scroll::-webkit-scrollbar-corner{background:transparent}
+.fuibo-scroll::-webkit-scrollbar-thumb{background:transparent;border-radius:99px;transition:background .5s ease}
+.fuibo-scroll.is-scrolling::-webkit-scrollbar-thumb{background:rgba(26,24,20,.32)}
+.fuibo-scroll{scrollbar-width:none}
+</style>
+</helmet>
+
+<div style="display:flex;flex-direction:column;gap:120px">
+
+  <!-- ═══════════════ INTERACTIVE PROTOTYPE ═══════════════ -->
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin:0 0 16px">
+      <div style="font:600 11px 'Geist',sans-serif;letter-spacing:.14em;color:#C05A3C">◆ INTERACTIVE PROTOTYPE</div>
+      <div style="font:400 12px 'Geist',sans-serif;color:rgba(26,24,20,.5)">tap the chat button, chevron, topic cards, the input field &amp; the + button</div>
+    </div>
+
+    <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" keyboard="{{ kbVisible }}" hint-size="402px,874px">
+
+      <!-- ── HOME ── -->
+      <sc-if value="{{ isHome }}" hint-placeholder-val="{{ true }}">
+      <div data-screen-label="Fuibo Flower home" style="position:relative;height:100%;overflow:hidden;font-family:'Geist',-apple-system,sans-serif;background:#E9E6F8">
+        <div style="position:absolute;top:64px;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:10">
+          <div style="width:44px;height:44px;display:flex;flex-direction:column;gap:6px;justify-content:center;cursor:pointer">
+            <div style="width:22px;height:2.5px;border-radius:2px;background:#1A1814"></div>
+            <div style="width:15px;height:2.5px;border-radius:2px;background:#1A1814"></div>
+          </div>
+          <div style="width:46px;height:46px;border-radius:50%;background:#FBF3DC;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(26,24,20,.08);cursor:pointer">🚜</div>
+        </div>
+        <div style="position:absolute;top:132px;left:24px;right:24px;z-index:5">
+          <div style="font-size:48px;font-weight:500;line-height:1.2;letter-spacing:-.02em;color:#17151C">Fuibo<br>Flower</div>
+          <div style="position:absolute;right:0;bottom:6px;font-size:32px;color:#17151C;cursor:pointer">⇄</div>
+        </div>
+        <div style="position:absolute;top:262px;left:18px;right:18px;bottom:56px;border-radius:26px;overflow:hidden;box-shadow:0 18px 44px rgba(26,24,20,.18)">
+          <img src="assets/yoshi-flipped.png" style="width:100%;height:100%;object-fit:cover;display:block" alt="Fuibo Flower">
+        </div>
+        <div style="position:absolute;left:30px;bottom:36px;max-width:214px;z-index:8;background:#FFFFFF;border-radius:14px 14px 14px 4px;padding:12px 15px;font-size:14px;line-height:1.4;color:#2A2620;box-shadow:0 10px 26px rgba(26,24,20,.28)">Wanna see the baby version of your rabbit?</div>
+        <div onClick="{{ goChat }}" style="position:absolute;right:30px;bottom:34px;z-index:8;width:58px;height:58px;border-radius:50%;background:#C05A3C;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 28px rgba(192,90,60,.45);cursor:pointer">
+          <div style="position:relative;width:23px;height:18px;border-radius:8px;background:#FFF8F3">
+            <div style="position:absolute;left:4px;bottom:-3px;width:7px;height:7px;background:#FFF8F3;border-radius:1px;transform:rotate(45deg)"></div>
+          </div>
+        </div>
+        <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ toggle }}" style="position:absolute;inset:0;z-index:20;background:rgba(20,17,26,.68);animation:fuiboScrimIn .25s ease;cursor:pointer"></div>
+        </sc-if>
+        <div onClick="{{ toggle }}" style="position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:30;cursor:pointer">
+          <div style="position:relative;width:52px;height:52px;border-radius:50%;background:#FFFFFF;box-shadow:0 4px 14px rgba(26,24,20,.14);display:flex;align-items:center;justify-content:center">
+            <div style="width:11px;height:11px;border-right:2.5px solid #17151C;border-bottom:2.5px solid #17151C;transform:{{ chev }};transition:transform .3s ease;margin-top:{{ chevMt }}"></div>
+            <sc-if value="{{ badge }}" hint-placeholder-val="{{ true }}">
+              <div style="position:absolute;top:-2px;right:-2px;width:19px;height:19px;border-radius:50%;background:#D9442B;color:#fff;font:600 10.5px 'Geist',sans-serif;display:flex;align-items:center;justify-content:center;border:2px solid #E9E6F8;box-sizing:content-box">3</div>
+            </sc-if>
+          </div>
+        </div>
+        <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+          <div style="position:absolute;top:136px;left:0;right:0;z-index:25;animation:fuiboDropIn .32s ease">
+            <div ref="{{ railRef }}" class="fuibo-scroll" onScroll="{{ onRailScroll }}" onMouseDown="{{ dragStart }}" onMouseMove="{{ dragMove }}" onMouseUp="{{ dragEnd }}" onMouseLeave="{{ dragEnd }}" style="display:flex;overflow-x:auto;gap:14px;padding:6px calc(50% - 158px) 14px;cursor:grab;user-select:none">
+              <div onClick="{{ tapCard0 }}" style="flex:none;width:316px"><img src="./image-mrplat2o-7q3w.png" draggable="{{ false }}" style="width:316px;border-radius:16px;display:block;pointer-events:none" alt="Found for you"></div>
+              <div onClick="{{ tapCard1 }}" style="flex:none;width:316px"><img src="assets/topic-1.png" draggable="{{ false }}" style="width:316px;border-radius:16px;display:block;pointer-events:none" alt="Feature roadmap"></div>
+              <div onClick="{{ tapCard2 }}" style="flex:none;width:316px"><img src="assets/topic-3.png" draggable="{{ false }}" style="width:316px;border-radius:16px;display:block;pointer-events:none" alt="Follow up"></div>
+            </div>
+            <div style="display:flex;justify-content:center;gap:9px;padding-top:12px">
+              <div style="width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;background:{{ dotA }};box-sizing:border-box"></div>
+              <div style="width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;background:{{ dotB }};box-sizing:border-box"></div>
+              <div style="width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;background:{{ dotC }};box-sizing:border-box"></div>
+            </div>
+          </div>
+        </sc-if>
+      </div>
+      </sc-if>
+
+      <!-- ── CHAT ── -->
+      <sc-if value="{{ isChat }}" hint-placeholder-val="{{ false }}">
+      <div data-screen-label="Fuibo Flower chat" style="position:relative;height:100%;overflow:hidden;font-family:'Geist',-apple-system,sans-serif;background:#EDECF2">
+
+        <!-- hero as background, rounded bottom corners -->
+        <img src="assets/yoshi-flipped.png" style="position:absolute;top:0;left:0;right:0;height:312px;width:100%;object-fit:cover;object-position:50% 20%;border-radius:0 0 28px 28px;display:block;z-index:0" alt="Fuibo Flower">
+
+        <!-- thread scrolls OVER the hero; masked so content fades out before the header -->
+        <div ref="{{ threadRef }}" class="fuibo-scroll" onScroll="{{ onThreadScroll }}" onClick="{{ closeKb }}" style="position:absolute;top:0;left:0;right:0;bottom:0;overflow-y:auto;z-index:1;display:flex;flex-direction:column;gap:12px;padding-top:250px;padding-left:18px;padding-right:18px;padding-bottom:{{ threadPb }};-webkit-mask-image:linear-gradient(to bottom,transparent 122px,#000 312px);mask-image:linear-gradient(to bottom,transparent 122px,#000 312px)">
+          <sc-for list="{{ thread }}" as="m" hint-placeholder-count="5">
+            <sc-if value="{{ m.them }}" hint-placeholder-val="{{ true }}">
+              <div style="max-width:80%;align-self:flex-start;background:#FFFFFF;border-radius:18px;padding:14px 16px;font-size:15px;line-height:1.5;color:#2A2620;box-shadow:0 4px 16px rgba(26,24,20,.10);white-space:pre-line;animation:fuiboMsgIn .28s ease">{{ m.text }}</div>
+            </sc-if>
+            <sc-if value="{{ m.me }}" hint-placeholder-val="{{ false }}">
+              <div style="max-width:80%;align-self:flex-end;background:#CFE9DE;border-radius:18px;padding:14px 16px;font-size:15px;line-height:1.5;color:#1E3A32;box-shadow:0 4px 16px rgba(26,24,20,.10);animation:fuiboMsgIn .28s ease">{{ m.text }}</div>
+            </sc-if>
+            <sc-if value="{{ m.divider }}" hint-placeholder-val="{{ false }}">
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 0;animation:fuiboMsgIn .28s ease">
+                <div style="flex:1;height:1px;background:rgba(26,24,20,.14)"></div>
+                <div style="font-size:12.5px;color:rgba(26,24,20,.5);background:rgba(26,24,20,.06);border-radius:99px;padding:5px 13px;white-space:nowrap">topic started</div>
+                <div style="flex:1;height:1px;background:rgba(26,24,20,.14)"></div>
+              </div>
+            </sc-if>
+          </sc-for>
+        </div>
+
+        <!-- header -->
+        <div onClick="{{ goHome }}" style="position:absolute;top:64px;left:20px;width:52px;height:52px;border-radius:50%;background:#FFFFFF;box-shadow:0 4px 14px rgba(26,24,20,.18);display:flex;align-items:center;justify-content:center;cursor:pointer;z-index:12">
+          <div style="position:relative;width:19px;height:2.5px;background:#17151C;border-radius:2px"><div style="position:absolute;left:0;top:50%;width:9px;height:9px;border-left:2.5px solid #17151C;border-bottom:2.5px solid #17151C;transform:translateY(-50%) rotate(45deg)"></div></div>
+        </div>
+        <div onClick="{{ toggle }}" style="position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:30;cursor:pointer">
+          <div style="width:52px;height:52px;border-radius:50%;background:#FFFFFF;box-shadow:0 4px 14px rgba(26,24,20,.18);display:flex;align-items:center;justify-content:center">
+            <div style="width:11px;height:11px;border-right:2.5px solid #17151C;border-bottom:2.5px solid #17151C;transform:{{ chev }};transition:transform .3s ease;margin-top:{{ chevMt }}"></div>
+          </div>
+        </div>
+
+        <!-- attach popover -->
+        <sc-if value="{{ attach }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ closeAttach }}" style="position:absolute;inset:0;z-index:14;cursor:pointer"></div>
+          <div style="position:absolute;left:16px;bottom:{{ attachBottom }};z-index:16;width:210px;background:#FFFFFF;border-radius:18px;box-shadow:0 16px 40px rgba(26,24,20,.24);overflow:hidden;animation:fuiboSheetIn .2s ease">
+            <div style="display:flex;align-items:center;gap:13px;padding:15px 18px;cursor:pointer;border-bottom:1px solid rgba(26,24,20,.07)">
+              <div style="width:24px;height:20px;border:2px solid #C05A3C;border-radius:5px;position:relative;box-sizing:border-box"><div style="position:absolute;top:-5px;left:6px;width:9px;height:5px;border:2px solid #C05A3C;border-bottom:none;border-radius:3px 3px 0 0;box-sizing:border-box"></div><div style="position:absolute;top:4px;left:50%;transform:translateX(-50%);width:6px;height:6px;border-radius:50%;background:#C05A3C"></div></div>
+              <div style="font-size:15px;color:#2A2620">Camera</div>
+            </div>
+            <div style="display:flex;align-items:center;gap:13px;padding:15px 18px;cursor:pointer">
+              <div style="width:24px;height:20px;border:2px solid #C05A3C;border-radius:5px;position:relative;box-sizing:border-box;overflow:hidden"><div style="position:absolute;bottom:2px;left:2px;width:8px;height:8px;border-radius:50%;background:#C05A3C"></div><div style="position:absolute;bottom:-2px;right:0;width:0;height:0;border-left:9px solid transparent;border-right:9px solid transparent;border-bottom:11px solid #C05A3C"></div></div>
+              <div style="font-size:15px;color:#2A2620">Upload image</div>
+            </div>
+          </div>
+        </sc-if>
+
+        <!-- composer -->
+        <div style="position:absolute;left:0;right:0;bottom:0;z-index:15;display:flex;align-items:center;gap:10px;padding:10px 16px;padding-bottom:{{ composerPb }};background:#EDECF2">
+          <div style="flex:1;display:flex;align-items:center;gap:6px;height:52px;border-radius:26px;background:#FFFFFF;box-shadow:0 2px 10px rgba(26,24,20,.07);padding:0 8px">
+            <div onClick="{{ toggleAttach }}" style="flex:none;width:38px;height:38px;border-radius:50%;background:{{ plusBg }};display:flex;align-items:center;justify-content:center;font-size:24px;color:#C05A3C;cursor:pointer;line-height:1;transform:{{ plusRot }};transition:transform .25s ease">+</div>
+            <div onClick="{{ openKb }}" style="flex:1;font-size:16px;color:{{ inputColor }};cursor:text">{{ inputText }}</div>
+          </div>
+          <div style="flex:none;width:52px;height:52px;border-radius:50%;background:#C05A3C;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(192,90,60,.4);cursor:pointer;color:#fff;font-size:22px;font-weight:700">↑</div>
+        </div>
+
+        <!-- carousel overlay on chat -->
+        <sc-if value="{{ open }}" hint-placeholder-val="{{ false }}">
+          <div onClick="{{ toggle }}" style="position:absolute;inset:0;z-index:20;background:rgba(20,17,26,.68);animation:fuiboScrimIn .25s ease;cursor:pointer"></div>
+          <div style="position:absolute;top:136px;left:0;right:0;z-index:25;animation:fuiboDropIn .32s ease">
+            <div ref="{{ railRefC }}" class="fuibo-scroll" onScroll="{{ onRailScrollC }}" onMouseDown="{{ dragStartC }}" onMouseMove="{{ dragMoveC }}" onMouseUp="{{ dragEndC }}" onMouseLeave="{{ dragEndC }}" style="display:flex;overflow-x:auto;gap:14px;padding:6px calc(50% - 158px) 14px;cursor:grab;user-select:none">
+              <div onClick="{{ tapCard0 }}" style="flex:none;width:316px"><img src="./image-mrplat2o-7q3w.png" draggable="{{ false }}" style="width:316px;border-radius:16px;display:block;pointer-events:none" alt="Found for you"></div>
+              <div onClick="{{ tapCard1 }}" style="flex:none;width:316px"><img src="assets/topic-1.png" draggable="{{ false }}" style="width:316px;border-radius:16px;display:block;pointer-events:none" alt="Feature roadmap"></div>
+              <div onClick="{{ tapCard2 }}" style="flex:none;width:316px"><img src="assets/topic-3.png" draggable="{{ false }}" style="width:316px;border-radius:16px;display:block;pointer-events:none" alt="Follow up"></div>
+            </div>
+            <div style="display:flex;justify-content:center;gap:9px;padding-top:12px">
+              <div style="width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;background:{{ dotA }};box-sizing:border-box"></div>
+              <div style="width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;background:{{ dotB }};box-sizing:border-box"></div>
+              <div style="width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;background:{{ dotC }};box-sizing:border-box"></div>
+            </div>
+          </div>
+        </sc-if>
+
+      </div>
+      </sc-if>
+
+    </x-import>
+  </div>
+
+  <!-- ═══════════════ STATIC FULL FLOW ═══════════════ -->
+  <div>
+    <div style="display:flex;align-items:center;gap:10px;margin:0 0 16px">
+      <div style="font:600 11px 'Geist',sans-serif;letter-spacing:.14em;color:#C05A3C">▤ REFERENCE · STATIC</div>
+      <div style="font:400 12px 'Geist',sans-serif;color:rgba(26,24,20,.5)">home &amp; chat room</div>
+    </div>
+    <div style="display:flex;gap:26px;align-items:flex-start">
+
+      <!-- S1 home default -->
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div style="font:500 11px 'Geist',sans-serif;color:rgba(26,24,20,.55)">1 · Home</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="position:relative;height:100%;overflow:hidden;font-family:'Geist',sans-serif;background:#E9E6F8">
+            <div style="position:absolute;top:64px;left:24px;width:44px;height:44px;display:flex;flex-direction:column;gap:6px;justify-content:center"><div style="width:22px;height:2.5px;border-radius:2px;background:#1A1814"></div><div style="width:15px;height:2.5px;border-radius:2px;background:#1A1814"></div></div>
+            <div style="position:absolute;top:64px;right:24px;width:46px;height:46px;border-radius:50%;background:#FBF3DC;display:flex;align-items:center;justify-content:center;font-size:22px">🚜</div>
+            <div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);width:52px;height:52px;border-radius:50%;background:#FFFFFF;box-shadow:0 4px 14px rgba(26,24,20,.14);display:flex;align-items:center;justify-content:center"><div style="width:11px;height:11px;border-right:2.5px solid #17151C;border-bottom:2.5px solid #17151C;transform:rotate(45deg);margin-top:-5px"></div><div style="position:absolute;top:-2px;right:-2px;width:19px;height:19px;border-radius:50%;background:#D9442B;color:#fff;font:600 10.5px 'Geist',sans-serif;display:flex;align-items:center;justify-content:center;border:2px solid #E9E6F8;box-sizing:content-box">3</div></div>
+            <div style="position:absolute;top:132px;left:24px;right:24px"><div style="font-size:48px;font-weight:500;line-height:1.2;letter-spacing:-.02em;color:#17151C">Fuibo<br>Flower</div><div style="position:absolute;right:0;bottom:6px;font-size:32px;color:#17151C">⇄</div></div>
+            <div style="position:absolute;top:262px;left:18px;right:18px;bottom:56px;border-radius:26px;overflow:hidden;box-shadow:0 18px 44px rgba(26,24,20,.18)"><img src="assets/yoshi-flipped.png" style="width:100%;height:100%;object-fit:cover;display:block" alt="Fuibo Flower"></div>
+            <div style="position:absolute;left:30px;bottom:36px;max-width:214px;background:#FFFFFF;border-radius:14px 14px 14px 4px;padding:12px 15px;font-size:14px;line-height:1.4;color:#2A2620;box-shadow:0 10px 26px rgba(26,24,20,.28)">Wanna see the baby version of your rabbit?</div>
+            <div style="position:absolute;right:30px;bottom:34px;width:58px;height:58px;border-radius:50%;background:#C05A3C;display:flex;align-items:center;justify-content:center;box-shadow:0 12px 28px rgba(192,90,60,.45)"><div style="position:relative;width:23px;height:18px;border-radius:8px;background:#FFF8F3"><div style="position:absolute;left:4px;bottom:-3px;width:7px;height:7px;background:#FFF8F3;border-radius:1px;transform:rotate(45deg)"></div></div></div>
+          </div>
+        </x-import>
+      </div>
+
+      <!-- S2 chat room -->
+      <div style="display:flex;flex-direction:column;gap:9px">
+        <div style="font:500 11px 'Geist',sans-serif;color:rgba(26,24,20,.55)">2 · Chat room</div>
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="position:relative;height:100%;overflow:hidden;font-family:'Geist',sans-serif;background:#EDECF2">
+            <img src="assets/yoshi-flipped.png" style="position:absolute;top:0;left:0;right:0;height:312px;width:100%;object-fit:cover;object-position:50% 20%;border-radius:0 0 28px 28px;display:block;z-index:0" alt="Fuibo Flower">
+            <div style="position:absolute;top:0;left:0;right:0;bottom:0;z-index:1;display:flex;flex-direction:column;gap:12px;padding:250px 18px 100px;-webkit-mask-image:linear-gradient(to bottom,transparent 122px,#000 312px);mask-image:linear-gradient(to bottom,transparent 122px,#000 312px)">
+              <div style="max-width:80%;align-self:flex-start;background:#FFFFFF;border-radius:18px;padding:14px 16px;font-size:15px;line-height:1.5;color:#2A2620;box-shadow:0 4px 16px rgba(26,24,20,.10)">This is a sample text that is filling as Lorem Ipsum just to test out how this looks.</div>
+              <div style="max-width:80%;align-self:flex-end;background:#CFE9DE;border-radius:18px;padding:14px 16px;font-size:15px;line-height:1.5;color:#1E3A32;box-shadow:0 4px 16px rgba(26,24,20,.10)">Yes</div>
+              <div style="display:flex;align-items:center;gap:10px;padding:8px 0"><div style="flex:1;height:1px;background:rgba(26,24,20,.14)"></div><div style="font-size:12.5px;color:rgba(26,24,20,.5);background:rgba(26,24,20,.06);border-radius:99px;padding:5px 13px;white-space:nowrap">topic started</div><div style="flex:1;height:1px;background:rgba(26,24,20,.14)"></div></div>
+              <div style="max-width:80%;align-self:flex-start;background:#FFFFFF;border-radius:18px;padding:14px 16px;font-size:15px;line-height:1.5;color:#2A2620;box-shadow:0 4px 16px rgba(26,24,20,.10)">Okay — I dug into that AWS outage story for you. Want the short version or the nerdy version?</div>
+            </div>
+            <div style="position:absolute;top:64px;left:20px;z-index:12;width:52px;height:52px;border-radius:50%;background:#FFFFFF;box-shadow:0 4px 14px rgba(26,24,20,.18);display:flex;align-items:center;justify-content:center"><div style="position:relative;width:19px;height:2.5px;background:#17151C;border-radius:2px"><div style="position:absolute;left:0;top:50%;width:9px;height:9px;border-left:2.5px solid #17151C;border-bottom:2.5px solid #17151C;transform:translateY(-50%) rotate(45deg)"></div></div></div>
+            <div style="position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:30;width:52px;height:52px;border-radius:50%;background:#FFFFFF;box-shadow:0 4px 14px rgba(26,24,20,.18);display:flex;align-items:center;justify-content:center"><div style="width:11px;height:11px;border-right:2.5px solid #17151C;border-bottom:2.5px solid #17151C;transform:rotate(45deg);margin-top:-5px"></div></div>
+            <div style="position:absolute;left:0;right:0;bottom:0;z-index:15;display:flex;align-items:center;gap:10px;padding:10px 16px 34px;background:#EDECF2">
+              <div style="flex:1;display:flex;align-items:center;gap:6px;height:52px;border-radius:26px;background:#FFFFFF;box-shadow:0 2px 10px rgba(26,24,20,.07);padding:0 8px"><div style="flex:none;width:38px;height:38px;border-radius:50%;background:#FBEDE8;display:flex;align-items:center;justify-content:center;font-size:24px;color:#C05A3C;line-height:1">+</div><div style="flex:1;font-size:16px;color:rgba(26,24,20,.4)">Message</div></div>
+              <div style="flex:none;width:52px;height:52px;border-radius:50%;background:#C05A3C;display:flex;align-items:center;justify-content:center;box-shadow:0 8px 18px rgba(192,90,60,.4);color:#fff;font-size:22px;font-weight:700">↑</div>
+            </div>
+          </div>
+        </x-import>
+      </div>
+
+    </div>
+  </div>
+
+</div>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script data-props="{&quot;$preview&quot;:{&quot;width&quot;:2400,&quot;height&quot;:1040}}">
+class Component extends DCLogic {
+  state = {
+    screen: 'home', open: false, seen: false, idx: 0,
+    kb: false, attach: false,
+    thread: [
+      { type: 'them', text: 'This is a sample text that is filling as Lorem Ipsum just to test out how this looks.' },
+      { type: 'them', text: 'This is a sample text that is filling as Lorem Ipsum just to test out how this looks.\n\nReady?' },
+      { type: 'me', text: 'Yes' },
+    ],
+  };
+  _rail = React.createRef();
+  _railC = React.createRef();
+  _thread = React.createRef();
+  _stride = 330;
+
+  _openers = [
+    "Okay — I dug into that AWS outage story for you. Turns out a single config push took down half the internet's Tuesday. Want the short version or the nerdy version?",
+    "Here's the roadmap thing you flagged. Three items shipped, two slipped to next sprint. Want me to flag which ones are blocking you?",
+    "Circling back on this one — you never told me how it went. So? How'd it go?",
+  ];
+
+  componentDidUpdate(prevProps, prevState) {
+    const prevLen = prevState && prevState.thread ? prevState.thread.length : this._lastLen || 0;
+    const prevKb = prevState ? prevState.kb : this._lastKb;
+    const grew = prevLen !== this.state.thread.length;
+    const kbOpened = !prevKb && this.state.kb;
+    if ((grew || kbOpened) && this._thread.current) {
+      const el = this._thread.current;
+      // let the keyboard/layout settle, then pin to newest message
+      requestAnimationFrame(() => { el.scrollTop = el.scrollHeight; });
+    }
+    this._lastLen = this.state.thread.length;
+    this._lastKb = this.state.kb;
+  }
+
+  _flashScrollbar(el) {
+    if (!el) return;
+    el.classList.add('is-scrolling');
+    clearTimeout(this._sbT);
+    this._sbT = setTimeout(() => el.classList.remove('is-scrolling'), 850);
+  }
+
+  _snap(ref) {
+    const el = ref.current;
+    if (!el) return;
+    el.style.cursor = 'grab';
+    const idx = Math.max(0, Math.min(2, Math.round(el.scrollLeft / this._stride)));
+    el.scrollTo({ left: idx * this._stride, behavior: 'smooth' });
+  }
+
+  _startTopic(i) {
+    if (this._dragMoved) { this._dragMoved = false; return; }
+    this.setState((s) => ({
+      screen: 'chat', open: false, seen: true, kb: false, attach: false,
+      thread: [...s.thread, { type: 'divider' }, { type: 'them', text: this._openers[i] }],
+    }));
+  }
+
+  _mkDrag(ref) {
+    return {
+      start: (e) => { const el = ref.current; if (!el) return; this._drag = { x: e.clientX, left: el.scrollLeft }; this._dragMoved = false; el.style.cursor = 'grabbing'; },
+      move: (e) => { if (!this._drag) return; const el = ref.current; if (!el) return; const dx = e.clientX - this._drag.x; if (Math.abs(dx) > 4) this._dragMoved = true; el.scrollLeft = this._drag.left - dx; },
+      end: () => { if (!this._drag) return; this._drag = null; this._snap(ref); },
+      scroll: (e) => { const idx = Math.max(0, Math.min(2, Math.round(e.currentTarget.scrollLeft / this._stride))); if (idx !== this.state.idx) this.setState({ idx }); },
+    };
+  }
+
+  renderVals() {
+    const dHome = this._mkDrag(this._rail);
+    const dChat = this._mkDrag(this._railC);
+    return {
+      isHome: this.state.screen === 'home',
+      isChat: this.state.screen === 'chat',
+      goChat: () => this.setState({ screen: 'chat', open: false }),
+      goHome: () => this.setState({ screen: 'home', open: false, kb: false, attach: false }),
+
+      kb: this.state.kb,
+      // keep kb "remembered" but hide/disable the keyboard while the carousel overlay is up
+      kbVisible: this.state.kb && !this.state.open,
+      attach: this.state.attach,
+      openKb: () => this.setState({ kb: true, attach: false }),
+      closeKb: () => { if (this.state.kb) this.setState({ kb: false }); },
+      toggleAttach: () => this.setState((s) => ({ attach: !s.attach })),
+      closeAttach: () => this.setState({ attach: false }),
+      composerPb: this.state.kb ? '10px' : '34px',
+      attachBottom: this.state.kb ? '72px' : '96px',
+      threadPb: this.state.kb ? '100px' : '124px',
+      plusBg: this.state.attach ? '#F3D9CE' : '#FBEDE8',
+      plusRot: this.state.attach ? 'rotate(45deg)' : 'rotate(0deg)',
+      inputText: this.state.kb ? 'Message|' : 'Message',
+      inputColor: this.state.kb ? '#2A2620' : 'rgba(26,24,20,.4)',
+
+      thread: this.state.thread.map((m) => ({
+        them: m.type === 'them', me: m.type === 'me', divider: m.type === 'divider', text: m.text || '',
+      })),
+      threadRef: this._thread,
+      onThreadScroll: (e) => this._flashScrollbar(e.currentTarget),
+
+      open: this.state.open,
+      badge: !this.state.seen && !this.state.open,
+      chev: this.state.open ? 'rotate(225deg)' : 'rotate(45deg)',
+      chevMt: this.state.open ? '6px' : '-5px',
+      toggle: () => this.setState((s) => ({ open: !s.open, seen: true, idx: s.open ? s.idx : 0, attach: false })),
+
+      railRef: this._rail,
+      onRailScroll: dHome.scroll, dragStart: dHome.start, dragMove: dHome.move, dragEnd: dHome.end,
+      railRefC: this._railC,
+      onRailScrollC: dChat.scroll, dragStartC: dChat.start, dragMoveC: dChat.move, dragEndC: dChat.end,
+
+      tapCard0: () => this._startTopic(0),
+      tapCard1: () => this._startTopic(1),
+      tapCard2: () => this._startTopic(2),
+
+      dotA: this.state.idx === 0 ? '#fff' : 'transparent',
+      dotB: this.state.idx === 1 ? '#fff' : 'transparent',
+      dotC: this.state.idx === 2 ? '#fff' : 'transparent',
+    };
+  }
+}
+
+</script>
+</body>
+</html>

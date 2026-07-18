@@ -1,0 +1,923 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<script src="./support.js"></script>
+</head>
+<body>
+<x-dc>
+<helmet data-dc-atomics>
+<meta name="design_doc_mode" content="canvas">
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Geist:wght@300;400;500;600;700&amp;family=Instrument+Serif:ital@0;1&amp;family=JetBrains+Mono:wght@400;500;600&amp;display=swap">
+<style>
+body{margin:0;background:#F0EEE9;font-family:'Geist',system-ui,sans-serif}
+a{color:#C8472B}a:hover{color:#A63A22}
+.dv-turn{padding:40px 44px 32px;border-bottom:1px solid rgba(0,0,0,.08);scroll-margin-top:16px}
+.dv-thd{display:flex;align-items:baseline;gap:10px;margin:0 0 8px}
+.dv-tid{font:600 10px 'JetBrains Mono',monospace;padding:3px 7px;background:#1A1814;color:#fff;border-radius:4px;text-decoration:none}
+.dv-tname{font:600 13px/1.2 'Geist',sans-serif;color:#1A1814}
+.dv-note{margin:0 0 24px;font:12px/1.6 'Geist',sans-serif;color:rgba(26,24,20,.55);max-width:760px}
+.dv-opts{display:flex;flex-wrap:wrap;gap:36px;align-items:flex-start}
+.dv-opt{flex:none;display:flex;flex-direction:column;gap:9px;scroll-margin-top:16px}
+.dv-oid{font:600 10.5px 'JetBrains Mono',monospace;padding:3px 7px;background:rgba(0,0,0,.08);color:#1A1814;border-radius:5px;text-decoration:none}
+.dv-olabel{display:flex;align-items:baseline;gap:8px;font:400 11px/1.3 'Geist',sans-serif;color:rgba(0,0,0,.55)}
+.dv-card{max-width:100%;background:#EBE8E1;border:1px solid rgba(0,0,0,.08);border-radius:12px;box-shadow:0 1px 3px rgba(0,0,0,.06);overflow:hidden}
+.dv-opt:target .dv-oid{background:#C8472B;color:#fff}
+.dv-next{margin:22px 0 0;font:12px/1.5 'Geist',sans-serif;color:rgba(0,0,0,.5)}
+@keyframes yoshiDropIn{from{opacity:0;transform:translateY(-18px)}to{opacity:1;transform:translateY(0)}}
+@keyframes yoshiFanUp{from{opacity:0;transform:translateY(26px)}to{opacity:1;transform:translateY(0)}}
+@keyframes yoshiPulse{0%,100%{opacity:.9;transform:scale(1)}50%{opacity:.45;transform:scale(.75)}}
+@keyframes yoshiHeartbeat{0%,100%{opacity:.5}28%{opacity:1}44%{opacity:.65}58%{opacity:.95}}
+@keyframes yoshiRipple{from{transform:scale(.15);opacity:.9}to{transform:scale(1.15);opacity:0}}
+@keyframes yoshiScrimIn{from{opacity:0}to{opacity:1}}
+</style>
+</helmet>
+
+<section class="dv-turn" id="t2">
+  <div class="dv-thd"><a class="dv-tid" href="#t2">2</a><span class="dv-tname">Rebuild — "Fuibo Flower" home · chevron → topic carousel</span></div>
+  <p class="dv-note">Tap the chevron: scrim fades in, the topic carousel drops down (swipe it sideways), the badge is dismissed for good once opened. Menu, mower, switch, chat icon &amp; bubble are placeholders for now. Character image is flipped to match your mock.</p>
+  <div class="dv-opts">
+
+    <div class="dv-opt" id="2a">
+      <div class="dv-olabel"><a class="dv-oid" href="#2a">2a</a>Homepage · tap chevron to open topics · tap scrim or chevron to close</div>
+      <div class="dv-card" style="padding:28px">
+
+        <div data-screen-label="2a · Fuibo Flower home">
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="position:relative;height:100%;overflow:hidden;font-family:'Geist',-apple-system,sans-serif;background:#E9E6F8">
+
+            <!-- top bar -->
+            <div style="position:absolute;top:64px;left:0;right:0;display:flex;align-items:center;justify-content:space-between;padding:0 24px;z-index:10">
+              <!-- menu (placeholder) -->
+              <div style="width:44px;height:44px;display:flex;flex-direction:column;gap:6px;justify-content:center;cursor:pointer">
+                <div style="width:22px;height:2.5px;border-radius:2px;background:#1A1814"></div>
+                <div style="width:15px;height:2.5px;border-radius:2px;background:#1A1814"></div>
+              </div>
+              <!-- mower (placeholder) -->
+              <div style="width:46px;height:46px;border-radius:50%;background:#FBF3DC;display:flex;align-items:center;justify-content:center;font-size:22px;box-shadow:0 2px 8px rgba(26,24,20,.08);cursor:pointer">🚜</div>
+            </div>
+
+            <!-- title -->
+            <div style="position:absolute;top:132px;left:24px;right:24px;z-index:5">
+              <div style="font-size:44px;font-weight:500;line-height:1.14;letter-spacing:-.02em;color:#17151C">Fuibo<br>Flower</div>
+              <!-- switch (placeholder) -->
+              <div style="position:absolute;right:0;bottom:6px;font-size:22px;color:#17151C;cursor:pointer">⇄</div>
+            </div>
+
+            <!-- portrait card -->
+            <div style="position:absolute;top:262px;left:18px;right:18px;bottom:30px;border-radius:26px;overflow:hidden;box-shadow:0 18px 44px rgba(26,24,20,.18)">
+              <img src="assets/yoshi-flipped.png" style="width:100%;height:100%;object-fit:cover;display:block" alt="Fuibo Flower">
+              <!-- chat bubble (placeholder) -->
+              <div style="position:absolute;left:14px;bottom:16px;max-width:210px;background:#FFFFFF;border-radius:14px 14px 14px 4px;padding:11px 14px;font-size:14px;line-height:1.4;color:#2A2620;box-shadow:0 8px 22px rgba(26,24,20,.22)">Wanna see the baby version of your rabbit?</div>
+              <!-- chat FAB (placeholder) -->
+              <div style="position:absolute;right:16px;bottom:16px;width:56px;height:56px;border-radius:50%;background:#C05A3C;display:flex;align-items:center;justify-content:center;box-shadow:0 10px 24px rgba(192,90,60,.4);cursor:pointer">
+                <div style="position:relative;width:23px;height:18px;border-radius:8px;background:#FFF8F3">
+                  <div style="position:absolute;left:4px;bottom:-3px;width:7px;height:7px;background:#FFF8F3;border-radius:1px;transform:rotate(45deg)"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- scrim -->
+            <sc-if value="{{ drawer2 }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ toggle2 }}" style="position:absolute;inset:0;z-index:20;background:rgba(20,17,26,.55);animation:yoshiScrimIn .25s ease;cursor:pointer"></div>
+            </sc-if>
+
+            <!-- chevron (always on top) -->
+            <div onClick="{{ toggle2 }}" style="position:absolute;top:64px;left:50%;transform:translateX(-50%);z-index:30;cursor:pointer">
+              <div style="position:relative;width:52px;height:52px;border-radius:50%;background:#FFFFFF;box-shadow:0 4px 14px rgba(26,24,20,.14);display:flex;align-items:center;justify-content:center">
+                <div style="width:11px;height:11px;border-right:2.5px solid #17151C;border-bottom:2.5px solid #17151C;transform:{{ chev2 }};transition:transform .3s ease;margin-top:{{ chevMt2 }}"></div>
+                <sc-if value="{{ badge2 }}" hint-placeholder-val="{{ true }}">
+                  <div style="position:absolute;top:-2px;right:-2px;width:19px;height:19px;border-radius:50%;background:#D9442B;color:#fff;font:600 10.5px 'Geist',sans-serif;display:flex;align-items:center;justify-content:center;border:2px solid #E9E6F8;box-sizing:content-box">3</div>
+                </sc-if>
+              </div>
+            </div>
+
+            <!-- topic carousel -->
+            <sc-if value="{{ drawer2 }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:136px;left:0;right:0;z-index:25;animation:yoshiDropIn .32s ease">
+                <div onScroll="{{ carouselScroll2 }}" style="display:flex;overflow-x:auto;scroll-snap-type:x mandatory;scrollbar-width:none;gap:14px;padding:6px calc(50% - 158px) 14px">
+                  <img src="assets/topic-1.png" style="flex:none;width:316px;border-radius:16px;scroll-snap-align:center;box-shadow:0 16px 40px rgba(0,0,0,.35);display:block" alt="Topic 1">
+                  <img src="assets/topic-2.png" style="flex:none;width:316px;border-radius:16px;scroll-snap-align:center;box-shadow:0 16px 40px rgba(0,0,0,.35);display:block" alt="Topic 2">
+                  <img src="assets/topic-3.png" style="flex:none;width:316px;border-radius:16px;scroll-snap-align:center;box-shadow:0 16px 40px rgba(0,0,0,.35);display:block" alt="Topic 3">
+                </div>
+                <div style="display:flex;justify-content:center;gap:9px;padding-top:12px">
+                  <div style="width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;background:{{ dot2a }};box-sizing:border-box"></div>
+                  <div style="width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;background:{{ dot2b }};box-sizing:border-box"></div>
+                  <div style="width:9px;height:9px;border-radius:50%;border:1.5px solid #fff;background:{{ dot2c }};box-sizing:border-box"></div>
+                </div>
+              </div>
+            </sc-if>
+
+          </div>
+        </x-import>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+</section>
+
+<section class="dv-turn" id="t1">
+  <div class="dv-thd"><a class="dv-tid" href="#t1">1</a><span class="dv-tname">Yoshi — three directions, homepage + chat room (Friend type)</span></div>
+  <p class="dv-note">Assumptions: warm paper / ink / vermillion palette with Geist + Instrument Serif (status lines in the companion's "voice" are serif italic) — no AI-purple. The Yoshi image is a drag-and-drop slot in every mock: drop any photo and it persists. Interactive bits: in <a class="dv-oid" href="#1a">1a</a> tap the ring, teaser bubble, or top handle to open the topic drawer; in <a class="dv-oid" href="#1b">1b</a> tap the newspaper stack; in <a class="dv-oid" href="#1c">1c</a> tap the card stack to fan it. <a class="dv-oid" href="#1d">1d</a> is the quiet/night state of Direction A — ring neutral, no topics waiting.</p>
+  <div class="dv-opts">
+
+    <!-- ═══════════════════════ 1a — DIRECTION A: LIVING PORTRAIT ═══════════════════════ -->
+    <div class="dv-opt" id="1a">
+      <div class="dv-olabel"><a class="dv-oid" href="#1a">1a</a>Direction A — "Living Portrait" · drawer drops from the top edge · spin the dial (bottom-left) to change weather · tap the image = ripple · press &amp; hold = heartbeat glow · hover = tilt parallax</div>
+      <div class="dv-card" style="padding:28px;display:flex;gap:28px">
+
+        <div data-screen-label="A · Homepage">
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="position:relative;height:100%;overflow:hidden;font-family:'Geist',-apple-system,sans-serif;background:{{ bgA }}">
+
+            <!-- hamburger (settings) -->
+            <div style="position:absolute;top:72px;left:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.6);border:1px solid rgba(26,24,20,.08);backdrop-filter:blur(10px);display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;z-index:10">
+              <div style="width:15px;height:1.8px;border-radius:2px;background:#3A342C"></div>
+              <div style="width:15px;height:1.8px;border-radius:2px;background:#3A342C"></div>
+            </div>
+
+            <!-- drawer handle, peeking from top -->
+            <div onClick="{{ toggleDrawerA }}" style="position:absolute;top:72px;left:50%;transform:translateX(-50%);cursor:pointer;z-index:10;display:flex;flex-direction:column;align-items:center;gap:4px">
+              <div style="position:relative;width:66px;height:26px;border-radius:14px;background:rgba(255,255,255,.65);border:1px solid rgba(26,24,20,.08);backdrop-filter:blur(10px);display:flex;align-items:center;justify-content:center">
+                <div style="width:9px;height:9px;border-right:2px solid #6B6257;border-bottom:2px solid #6B6257;transform:rotate(45deg) translate(-2px,-2px)"></div>
+                <div style="position:absolute;top:-5px;right:-5px;width:17px;height:17px;border-radius:50%;background:#C8472B;color:#fff;font:600 9.5px 'Geist',sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 2px 6px rgba(200,71,43,.4)">3</div>
+              </div>
+            </div>
+
+            <!-- depth echo (parallax hint) -->
+            <div style="position:absolute;top:250px;left:50%;transform:translate(calc(-50% + 12px),16px);width:268px;height:268px;border-radius:50%;border:1px solid rgba(26,24,20,.10)"></div>
+
+            <!-- story ring + yoshi -->
+            <div style="position:absolute;top:236px;left:50%;transform:translateX(-50%);width:272px;height:272px;perspective:650px">
+              <!-- long-press heartbeat glow -->
+              <sc-if value="{{ glowA }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;inset:-12px;border-radius:50%;box-shadow:0 0 64px 20px rgba(226,140,90,.55);animation:yoshiHeartbeat 1.15s ease-in-out infinite;pointer-events:none;z-index:2"></div>
+              </sc-if>
+              <!-- ring (tilt-parallax on hover, tap = ripple, hold = glow) -->
+              <div onMouseMove="{{ moveA }}" onMouseLeave="{{ leaveA }}" onMouseDown="{{ pressA }}" onMouseUp="{{ releaseA }}" onClick="{{ tapA }}" style="width:272px;height:272px;border-radius:50%;padding:5px;box-sizing:border-box;background:conic-gradient(from 210deg,#C8472B,#E2A377,#93A9BE,#C8472B);box-shadow:0 22px 55px rgba(26,24,20,.20),0 0 70px rgba(200,71,43,.16);transform:{{ tiltA }};transition:transform .18s ease-out;cursor:pointer">
+                <div style="width:100%;height:100%;border-radius:50%;padding:5px;box-sizing:border-box;background:#F7F5F0">
+                  <div style="position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden">
+                    <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="yoshi-a" shape="circle" placeholder="Drop your Yoshi — any photo" hint-size="242px,242px"></x-import>
+                    <!-- weather glass (driven by the spin dial) -->
+                    <div style="position:absolute;inset:0;border-radius:50%;pointer-events:none;overflow:hidden">
+                      <div style="position:absolute;inset:0;background:linear-gradient(215deg,rgba(255,255,255,.30),rgba(255,255,255,0) 46%)"></div>
+                      <sc-if value="{{ weatherARain }}" hint-placeholder-val="{{ true }}">
+                        <div style="position:absolute;top:34px;left:52px;width:9px;height:13px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.8),rgba(255,255,255,.12) 62%,rgba(120,140,160,.18))"></div>
+                        <div style="position:absolute;top:78px;left:150px;width:12px;height:16px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.8),rgba(255,255,255,.12) 62%,rgba(120,140,160,.18))"></div>
+                        <div style="position:absolute;top:150px;left:60px;width:7px;height:10px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.75),rgba(255,255,255,.1) 62%,rgba(120,140,160,.16))"></div>
+                        <div style="position:absolute;top:120px;left:190px;width:8px;height:11px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.75),rgba(255,255,255,.1) 62%,rgba(120,140,160,.16))"></div>
+                        <div style="position:absolute;top:52px;left:104px;width:2px;height:36px;border-radius:2px;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0))"></div>
+                        <div style="position:absolute;top:130px;left:132px;width:2px;height:28px;border-radius:2px;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0))"></div>
+                      </sc-if>
+                      <sc-if value="{{ weatherASun }}" hint-placeholder-val="{{ false }}">
+                        <div style="position:absolute;inset:0;background:linear-gradient(215deg,rgba(255,214,150,.5),rgba(255,214,150,0) 50%)"></div>
+                        <div style="position:absolute;top:32px;right:40px;width:48px;height:48px;border-radius:50%;background:radial-gradient(circle,rgba(255,240,205,.8),rgba(255,240,205,0) 70%)"></div>
+                        <div style="position:absolute;top:100px;right:100px;width:16px;height:16px;border-radius:50%;background:rgba(255,230,180,.45)"></div>
+                        <div style="position:absolute;top:140px;right:140px;width:8px;height:8px;border-radius:50%;background:rgba(255,230,180,.35)"></div>
+                      </sc-if>
+                      <sc-if value="{{ weatherASnow }}" hint-placeholder-val="{{ false }}">
+                        <div style="position:absolute;inset:0;background:linear-gradient(200deg,rgba(226,232,240,.28),rgba(226,232,240,0) 55%)"></div>
+                        <div style="position:absolute;top:44px;left:70px;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
+                        <div style="position:absolute;top:88px;left:160px;width:4px;height:4px;border-radius:50%;background:rgba(255,255,255,.75)"></div>
+                        <div style="position:absolute;top:64px;left:118px;width:3.5px;height:3.5px;border-radius:50%;background:rgba(255,255,255,.7)"></div>
+                        <div style="position:absolute;top:128px;left:88px;width:4.5px;height:4.5px;border-radius:50%;background:rgba(255,255,255,.8)"></div>
+                        <div style="position:absolute;top:150px;left:176px;width:3.5px;height:3.5px;border-radius:50%;background:rgba(255,255,255,.7)"></div>
+                        <div style="position:absolute;bottom:-6px;left:20px;right:20px;height:28px;background:radial-gradient(ellipse at 50% 100%,rgba(255,255,255,.95),rgba(255,255,255,0) 78%)"></div>
+                      </sc-if>
+                      {{ rippleA }}
+                    </div>
+                  </div>
+                </div>
+              </div>
+
+              <!-- teaser bubble, docked to frame edge -->
+              <div onClick="{{ toggleDrawerA }}" style="position:absolute;top:-46px;right:-24px;width:186px;background:#FFFFFF;border:1px solid rgba(26,24,20,.07);border-radius:18px 18px 18px 5px;padding:11px 14px;box-shadow:0 12px 30px rgba(26,24,20,.14);cursor:pointer;font-size:13.5px;line-height:1.42;color:#2A2620">
+                I read something about the Spa race — wanna hear?
+                <div style="position:absolute;left:12px;bottom:-4px;width:10px;height:10px;background:#FFFFFF;border-right:1px solid rgba(26,24,20,.07);border-bottom:1px solid rgba(26,24,20,.07);transform:rotate(45deg)"></div>
+              </div>
+            </div>
+
+            <!-- status line -->
+            <div style="position:absolute;top:552px;left:0;right:0;display:flex;align-items:center;justify-content:center;gap:8px">
+              <div style="width:6px;height:6px;border-radius:50%;background:#C8472B;animation:yoshiPulse 2.6s ease-in-out infinite"></div>
+              <div style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:17.5px;color:#4A4239">reading about last night's race 🏎️</div>
+            </div>
+
+            <!-- weather spin dial (manual override) -->
+            <div onClick="{{ spinDialA }}" style="position:absolute;bottom:44px;left:22px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer">
+              <div style="position:relative;width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.72);border:1px solid rgba(26,24,20,.09);backdrop-filter:blur(10px);box-shadow:0 8px 20px rgba(26,24,20,.10)">
+                <div style="position:absolute;top:8px;left:9px;width:3px;height:3px;border-radius:50%;background:rgba(26,24,20,.25)"></div>
+                <div style="position:absolute;top:4px;left:50%;margin-left:-1.5px;width:3px;height:3px;border-radius:50%;background:rgba(26,24,20,.25)"></div>
+                <div style="position:absolute;top:8px;right:9px;width:3px;height:3px;border-radius:50%;background:rgba(26,24,20,.25)"></div>
+                <div style="position:absolute;inset:0;transform:rotate({{ dialAngleA }});transition:transform .45s cubic-bezier(.3,1.5,.5,1)">
+                  <div style="position:absolute;top:7px;left:50%;margin-left:-1.5px;width:3px;height:12px;border-radius:2px;background:#C8472B"></div>
+                </div>
+              </div>
+              <div style="font:500 8.5px 'JetBrains Mono',monospace;letter-spacing:.14em;color:rgba(26,24,20,.5);white-space:nowrap">{{ weatherLabelA }}</div>
+            </div>
+
+            <!-- FABs -->
+            <div style="position:absolute;bottom:44px;right:22px;display:flex;flex-direction:column;align-items:center;gap:12px;z-index:10">
+              <div style="width:46px;height:46px;border-radius:50%;background:#FFFFFF;border:1px solid rgba(26,24,20,.08);box-shadow:0 8px 20px rgba(26,24,20,.12);display:flex;align-items:flex-end;justify-content:center;gap:2.5px;padding-bottom:15px;box-sizing:border-box">
+                <div style="width:3px;height:9px;border-radius:2px;background:#5E8A4E;transform:rotate(-14deg)"></div>
+                <div style="width:3px;height:13px;border-radius:2px;background:#4E7A40"></div>
+                <div style="width:3px;height:8px;border-radius:2px;background:#5E8A4E;transform:rotate(14deg)"></div>
+              </div>
+              <div style="width:58px;height:58px;border-radius:50%;background:#C8472B;box-shadow:0 14px 30px rgba(200,71,43,.38);display:flex;align-items:center;justify-content:center">
+                <div style="position:relative;width:24px;height:19px;border-radius:9px;background:#FFF8F3">
+                  <div style="position:absolute;left:4px;bottom:-3px;width:8px;height:8px;background:#FFF8F3;border-radius:1px;transform:rotate(45deg)"></div>
+                </div>
+              </div>
+            </div>
+
+            <!-- topic drawer (open state) -->
+            <sc-if value="{{ drawerA }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;top:0;left:0;right:0;z-index:30;padding:64px 0 30px;background:linear-gradient(180deg,rgba(239,237,231,.98) 62%,rgba(239,237,231,0));animation:yoshiDropIn .35s ease">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:8px 22px 2px">
+                  <div style="font:600 10px 'JetBrains Mono',monospace;letter-spacing:.16em;color:#C8472B">FOR YOU — 3 NEW</div>
+                  <div onClick="{{ toggleDrawerA }}" style="width:26px;height:26px;border-radius:50%;background:rgba(26,24,20,.06);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:13px;color:#6B6257">✕</div>
+                </div>
+                <div style="display:flex;gap:12px;overflow-x:auto;padding:12px 22px 8px">
+                  <div style="flex:none;width:224px;background:#FFFFFF;border:1px solid rgba(26,24,20,.08);border-radius:18px;padding:14px 16px;box-shadow:0 10px 26px rgba(26,24,20,.10);display:flex;flex-direction:column;gap:9px">
+                    <div style="display:flex;align-items:center;gap:8px">
+                      <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#C8472B;background:rgba(200,71,43,.10);padding:3px 7px;border-radius:99px">READ · 4 MIN</div>
+                    </div>
+                    <div style="font-size:14.5px;font-weight:600;line-height:1.32;color:#1A1814">Verstappen's last-gasp gamble at Spa, explained</div>
+                    <div style="font-size:11px;color:rgba(26,24,20,.45)">the athletic · opens in app ↗</div>
+                  </div>
+                  <div style="flex:none;width:224px;background:#FAEFE9;border:1px solid rgba(200,71,43,.14);border-radius:18px;padding:14px 16px;box-shadow:0 10px 26px rgba(26,24,20,.10);display:flex;flex-direction:column;gap:9px">
+                    <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#FFF;background:#C8472B;padding:3px 7px;border-radius:99px;align-self:flex-start">CHAT</div>
+                    <div style="font-size:14.5px;font-weight:600;line-height:1.32;color:#1A1814">Wanna trade easy dinner ideas? I found a one-pan miso pasta</div>
+                    <div style="font-size:11px;color:#C8472B">start talking →</div>
+                  </div>
+                  <div style="flex:none;width:224px;background:#FFFFFF;border:1px solid rgba(26,24,20,.08);border-radius:18px;padding:14px 16px;box-shadow:0 10px 26px rgba(26,24,20,.10);display:flex;flex-direction:column;gap:9px">
+                    <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#C8472B;background:rgba(200,71,43,.10);padding:3px 7px;border-radius:99px;align-self:flex-start">READ · 3 MIN</div>
+                    <div style="font-size:14.5px;font-weight:600;line-height:1.32;color:#1A1814">'Weaving Light' opens downtown this weekend</div>
+                    <div style="font-size:11px;color:rgba(26,24,20,.45)">portland monthly · opens in app ↗</div>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </x-import>
+        </div>
+
+        <div data-screen-label="A · Chat room">
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="position:relative;height:100%;overflow:hidden;font-family:'Geist',-apple-system,sans-serif;background:linear-gradient(180deg,#E9ECEE 0%,#F4F2ED 32%,#F4F2ED 100%)">
+
+            <!-- collapsing header -->
+            <div style="position:relative;height:198px;overflow:hidden">
+              <div style="position:absolute;inset:0">
+                <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="yoshi-a-chat" shape="rect" placeholder="Drop your Yoshi" hint-size="402px,198px"></x-import>
+              </div>
+              <div style="position:absolute;left:0;right:0;bottom:0;height:96px;background:linear-gradient(180deg,rgba(20,18,15,0),rgba(20,18,15,.55));pointer-events:none"></div>
+              <div style="position:absolute;left:18px;bottom:12px;pointer-events:none">
+                <div style="font-size:20px;font-weight:600;color:#FFFFFF;letter-spacing:-.01em">Yoshi</div>
+                <div style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:13px;color:rgba(255,255,255,.85)">reading about last night's race</div>
+              </div>
+              <div style="position:absolute;top:66px;left:16px;width:38px;height:38px;border-radius:50%;background:rgba(20,18,15,.30);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center">
+                <div style="width:9px;height:9px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(45deg) translate(1px,-1px)"></div>
+              </div>
+            </div>
+
+            <!-- drawer handle (same affordance as home) -->
+            <div style="display:flex;justify-content:center;padding:8px 0 0">
+              <div style="position:relative;width:56px;height:20px;border-radius:12px;background:rgba(26,24,20,.06);display:flex;align-items:center;justify-content:center;cursor:pointer">
+                <div style="width:8px;height:8px;border-right:1.8px solid #6B6257;border-bottom:1.8px solid #6B6257;transform:rotate(45deg) translate(-2px,-2px)"></div>
+                <div style="position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:#C8472B;color:#fff;font:600 8.5px 'Geist',sans-serif;display:flex;align-items:center;justify-content:center">2</div>
+              </div>
+            </div>
+
+            <!-- thread -->
+            <div style="display:flex;flex-direction:column;gap:10px;padding:10px 16px 96px">
+              <div style="text-align:center;font:500 9.5px 'JetBrains Mono',monospace;letter-spacing:.14em;color:rgba(26,24,20,.38)">TODAY · 7:42 PM</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="flex:1;height:1px;background:rgba(26,24,20,.09)"></div>
+                <div style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#C8472B;background:rgba(200,71,43,.09);border-radius:99px;padding:4px 11px">✦ topic started — the Spa race</div>
+                <div style="flex:1;height:1px;background:rgba(26,24,20,.09)"></div>
+              </div>
+              <div style="max-width:78%;align-self:flex-start;background:#FFFFFF;border:1px solid rgba(26,24,20,.07);border-radius:18px 18px 18px 5px;padding:10px 14px;font-size:15px;line-height:1.45;color:#2A2620">Okay so — he pitted with THREE laps left and it somehow worked?? I don't fully get how. You watched, right?</div>
+              <div style="max-width:78%;align-self:flex-end;background:#2A2620;border-radius:18px 18px 5px 18px;padding:10px 14px;font-size:15px;line-height:1.45;color:#F7F5F0">hahaha yes. it was a bet on the safety car coming out</div>
+              <div style="max-width:78%;align-self:flex-start;background:#FFFFFF;border:1px solid rgba(26,24,20,.07);border-radius:18px 18px 18px 5px;padding:10px 14px;font-size:15px;line-height:1.45;color:#2A2620">Ohh, that makes more sense. This is the piece I was reading —</div>
+              <div style="max-width:78%;align-self:flex-start;background:#FFFFFF;border:1px solid rgba(26,24,20,.10);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;box-shadow:0 4px 14px rgba(26,24,20,.06)">
+                <div style="font:600 8.5px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#C8472B">READ · THE ATHLETIC</div>
+                <div style="font-size:13.5px;font-weight:600;line-height:1.3;color:#1A1814">Verstappen's last-gasp gamble at Spa, explained</div>
+                <div style="font-size:10.5px;color:rgba(26,24,20,.45)">opens in app ↗</div>
+              </div>
+              <div style="text-align:center;font:500 9.5px 'JetBrains Mono',monospace;letter-spacing:.14em;color:rgba(26,24,20,.38);padding-top:4px">YOU READ THE ARTICLE · 8:03 PM</div>
+              <div style="max-width:78%;align-self:flex-start;background:#FFFFFF;border:1px solid rgba(26,24,20,.07);border-radius:18px 18px 18px 5px;padding:10px 14px;font-size:15px;line-height:1.45;color:#2A2620">So — what did you think? Smart call, or just lucky?</div>
+              <div style="max-width:78%;align-self:flex-end;background:#2A2620;border-radius:18px 18px 5px 18px;padding:10px 14px;font-size:15px;line-height:1.45;color:#F7F5F0">smart AND lucky tbh</div>
+            </div>
+
+            <!-- input bar -->
+            <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 14px 38px;background:linear-gradient(180deg,rgba(244,242,237,0),rgba(244,242,237,.92) 34%);display:flex;gap:10px;align-items:center">
+              <div style="flex:1;height:44px;border-radius:22px;background:#FFFFFF;border:1px solid rgba(26,24,20,.09);display:flex;align-items:center;padding:0 18px;font-size:15px;color:rgba(26,24,20,.38)">Message Yoshi…</div>
+              <div style="width:44px;height:44px;border-radius:50%;background:#C8472B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;box-shadow:0 8px 18px rgba(200,71,43,.32)">↑</div>
+            </div>
+          </div>
+        </x-import>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ 1b — DIRECTION B: YOSHI'S ROOM ═══════════════════════ -->
+    <div class="dv-opt" id="1b">
+      <div class="dv-olabel"><a class="dv-oid" href="#1b">1b</a>Direction B — "Yoshi's Room" · rainy evening · the scene is the navigation (first-run labels on)</div>
+      <div class="dv-card" style="padding:28px;display:flex;gap:28px">
+
+        <div data-screen-label="B · Homepage">
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="position:relative;height:100%;overflow:hidden;font-family:'Geist',-apple-system,sans-serif;background:linear-gradient(180deg,#3E362E 0%,#453C33 58%,#453C33 62%,#5A4D40 62.5%,#514537 100%)">
+
+            <!-- lamp glow ambience -->
+            <div style="position:absolute;left:-40px;bottom:120px;width:340px;height:340px;border-radius:50%;background:radial-gradient(circle,rgba(238,190,120,.30),rgba(238,190,120,0) 65%);pointer-events:none"></div>
+
+            <!-- hamburger -->
+            <div style="position:absolute;top:72px;left:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.10);border:1px solid rgba(255,255,255,.12);display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;z-index:10">
+              <div style="width:15px;height:1.8px;border-radius:2px;background:rgba(255,255,255,.8)"></div>
+              <div style="width:15px;height:1.8px;border-radius:2px;background:rgba(255,255,255,.8)"></div>
+            </div>
+
+            <!-- window, rainy night -->
+            <div style="position:absolute;top:128px;left:26px;width:118px;height:158px;border-radius:10px;background:#2B3547;border:7px solid #332C25;box-shadow:0 8px 24px rgba(0,0,0,.3);overflow:hidden">
+              <div style="position:absolute;inset:0;background:linear-gradient(200deg,#39465E 0%,#252E40 100%)"></div>
+              <div style="position:absolute;top:14px;right:18px;width:22px;height:22px;border-radius:50%;background:rgba(235,235,220,.85);box-shadow:0 0 18px rgba(235,235,220,.5)"></div>
+              <div style="position:absolute;top:0;bottom:0;left:50%;width:4px;background:#332C25"></div>
+              <div style="position:absolute;top:10px;left:16px;width:1.5px;height:34px;background:linear-gradient(180deg,rgba(255,255,255,.4),rgba(255,255,255,0));transform:rotate(9deg)"></div>
+              <div style="position:absolute;top:52px;left:34px;width:1.5px;height:26px;background:linear-gradient(180deg,rgba(255,255,255,.32),rgba(255,255,255,0));transform:rotate(9deg)"></div>
+              <div style="position:absolute;top:30px;left:76px;width:1.5px;height:30px;background:linear-gradient(180deg,rgba(255,255,255,.36),rgba(255,255,255,0));transform:rotate(9deg)"></div>
+              <div style="position:absolute;top:88px;left:60px;width:1.5px;height:24px;background:linear-gradient(180deg,rgba(255,255,255,.3),rgba(255,255,255,0));transform:rotate(9deg)"></div>
+            </div>
+
+            <!-- hanging strings + framed yoshi -->
+            <div style="position:absolute;top:0;left:50%;transform:translateX(-50%);width:220px;height:190px;pointer-events:none">
+              <div style="position:absolute;top:0;left:52px;width:1px;height:190px;background:rgba(255,255,255,.16);transform:rotate(9deg);transform-origin:top"></div>
+              <div style="position:absolute;top:0;right:52px;width:1px;height:190px;background:rgba(255,255,255,.16);transform:rotate(-9deg);transform-origin:top"></div>
+            </div>
+            <div style="position:absolute;top:180px;left:50%;transform:translateX(-50%);width:204px;cursor:pointer">
+              <div style="width:204px;height:204px;background:#F2EDE2;border-radius:8px;padding:16px;box-sizing:border-box;box-shadow:0 24px 50px rgba(0,0,0,.42),0 0 0 5px #5C4C3B">
+                <div style="position:relative;width:172px;height:172px;border-radius:50%;overflow:hidden">
+                  <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="yoshi-b" shape="circle" placeholder="Drop your Yoshi" hint-size="172px,172px"></x-import>
+                  <div style="position:absolute;inset:0;border-radius:50%;pointer-events:none;background:linear-gradient(215deg,rgba(255,236,200,.22),rgba(0,0,0,.12) 70%)"></div>
+                </div>
+              </div>
+              <!-- first-run label -->
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:10px">
+                <div style="width:1px;height:10px;background:rgba(255,255,255,.4)"></div>
+                <div style="font:500 9px 'JetBrains Mono',monospace;letter-spacing:.16em;color:rgba(255,255,255,.75)">TAP TO TALK</div>
+              </div>
+            </div>
+
+            <!-- pinned status note -->
+            <div style="position:absolute;top:462px;left:26px;width:128px;background:#F7F2E4;border-radius:3px;padding:12px 12px 14px;transform:rotate(-3deg);box-shadow:0 10px 24px rgba(0,0,0,.35)">
+              <div style="position:absolute;top:-6px;left:50%;transform:translateX(-50%) rotate(-2deg);width:44px;height:13px;background:rgba(255,255,255,.55);box-shadow:0 1px 3px rgba(0,0,0,.15)"></div>
+              <div style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:13px;line-height:1.4;color:#4A4239">reading the paper — there's F1 news for you</div>
+            </div>
+
+            <!-- side table with newspaper stack (topic drawer) + lamp -->
+            <div onClick="{{ toggleDrawerB }}" style="position:absolute;bottom:118px;left:30px;width:150px;cursor:pointer">
+              <div style="position:relative;height:74px">
+                <!-- lamp -->
+                <div style="position:absolute;right:0;bottom:0;width:44px;display:flex;flex-direction:column;align-items:center">
+                  <div style="width:44px;height:30px;border-radius:8px 8px 12px 12px;background:linear-gradient(180deg,#EFC98F,#E2AE66);box-shadow:0 0 26px rgba(238,190,120,.55)"></div>
+                  <div style="width:3px;height:26px;background:#2E2822"></div>
+                  <div style="width:22px;height:4px;border-radius:2px;background:#2E2822"></div>
+                </div>
+                <!-- newspaper stack -->
+                <div style="position:absolute;left:2px;bottom:0;width:86px;height:60px">
+                  <div style="position:absolute;bottom:0;left:4px;width:78px;height:16px;border-radius:3px;background:#E8E2D2;box-shadow:0 2px 5px rgba(0,0,0,.25);transform:rotate(-2deg)"></div>
+                  <div style="position:absolute;bottom:12px;left:0;width:80px;height:16px;border-radius:3px;background:#F0EADA;box-shadow:0 2px 5px rgba(0,0,0,.25);transform:rotate(1.5deg)"></div>
+                  <div style="position:absolute;bottom:24px;left:6px;width:78px;height:18px;border-radius:3px;background:#F7F2E4;box-shadow:0 3px 7px rgba(0,0,0,.3);display:flex;flex-direction:column;gap:3px;justify-content:center;padding:0 9px;box-sizing:border-box">
+                    <div style="width:70%;height:2.5px;background:rgba(26,24,20,.4);border-radius:2px"></div>
+                    <div style="width:48%;height:2.5px;background:rgba(26,24,20,.22);border-radius:2px"></div>
+                  </div>
+                  <div style="position:absolute;top:12px;right:-6px;width:18px;height:18px;border-radius:50%;background:#C8472B;color:#fff;font:600 10px 'Geist',sans-serif;display:flex;align-items:center;justify-content:center;box-shadow:0 3px 8px rgba(200,71,43,.5)">3</div>
+                </div>
+              </div>
+              <!-- table -->
+              <div style="width:150px;height:9px;border-radius:4px;background:#2E2822"></div>
+              <div style="display:flex;justify-content:space-between;padding:0 14px">
+                <div style="width:5px;height:44px;background:#2E2822"></div>
+                <div style="width:5px;height:44px;background:#2E2822"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:6px">
+                <div style="width:1px;height:10px;background:rgba(255,255,255,.4)"></div>
+                <div style="font:500 9px 'JetBrains Mono',monospace;letter-spacing:.16em;color:rgba(255,255,255,.75)">TOPICS</div>
+              </div>
+            </div>
+
+            <!-- door (game entry) with grass mat -->
+            <div style="position:absolute;bottom:130px;right:26px;width:104px">
+              <div style="width:104px;height:224px;border-radius:6px 6px 0 0;background:#37302A;border:5px solid #2A241F;box-sizing:border-box;position:relative;box-shadow:0 10px 30px rgba(0,0,0,.3)">
+                <div style="position:absolute;inset:10px;border:2px solid rgba(255,255,255,.06);border-radius:3px"></div>
+                <div style="position:absolute;top:104px;left:10px;width:8px;height:8px;border-radius:50%;background:#C9A96A"></div>
+              </div>
+              <div style="position:relative;height:20px;margin-top:2px">
+                <div style="position:absolute;left:8px;right:8px;top:4px;height:12px;border-radius:50%;background:#4E6B3E"></div>
+                <div style="position:absolute;left:26px;top:0;width:2.5px;height:9px;border-radius:2px;background:#6B8F55;transform:rotate(-12deg)"></div>
+                <div style="position:absolute;left:48px;top:-2px;width:2.5px;height:11px;border-radius:2px;background:#7A9E62"></div>
+                <div style="position:absolute;left:70px;top:0;width:2.5px;height:9px;border-radius:2px;background:#6B8F55;transform:rotate(12deg)"></div>
+              </div>
+              <div style="display:flex;flex-direction:column;align-items:center;gap:3px;padding-top:4px">
+                <div style="width:1px;height:10px;background:rgba(255,255,255,.4)"></div>
+                <div style="font:500 9px 'JetBrains Mono',monospace;letter-spacing:.16em;color:rgba(255,255,255,.75)">THE GAME</div>
+              </div>
+            </div>
+
+            <!-- rug -->
+            <div style="position:absolute;bottom:52px;left:50%;transform:translateX(-50%);width:230px;height:44px;border-radius:50%;background:rgba(200,71,43,.20);border:1px solid rgba(200,71,43,.25)"></div>
+
+            <!-- drawer B: letters fan up from the table -->
+            <sc-if value="{{ drawerB }}" hint-placeholder-val="{{ false }}">
+              <div onClick="{{ toggleDrawerB }}" style="position:absolute;inset:0;z-index:30;background:rgba(18,14,10,.45);cursor:pointer"></div>
+              <div style="position:absolute;bottom:196px;left:22px;z-index:31;display:flex;flex-direction:column;gap:10px;animation:yoshiFanUp .35s ease">
+                <div style="width:236px;background:#F7F2E4;border-radius:12px;padding:13px 15px;box-shadow:0 14px 34px rgba(0,0,0,.45);transform:rotate(-2.5deg);display:flex;flex-direction:column;gap:7px">
+                  <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#C8472B">READ · 4 MIN</div>
+                  <div style="font-size:14px;font-weight:600;line-height:1.32;color:#1A1814">Verstappen's last-gasp gamble at Spa, explained</div>
+                  <div style="font-size:10.5px;color:rgba(26,24,20,.45)">the athletic · opens in app ↗</div>
+                </div>
+                <div style="width:236px;background:#FAEFE9;border-radius:12px;padding:13px 15px;box-shadow:0 14px 34px rgba(0,0,0,.45);transform:rotate(1.5deg);display:flex;flex-direction:column;gap:7px">
+                  <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#FFF;background:#C8472B;padding:3px 7px;border-radius:99px;align-self:flex-start">CHAT</div>
+                  <div style="font-size:14px;font-weight:600;line-height:1.32;color:#1A1814">Wanna trade easy dinner ideas? I found a one-pan miso pasta</div>
+                  <div style="font-size:10.5px;color:#C8472B">start talking →</div>
+                </div>
+                <div style="width:236px;background:#F7F2E4;border-radius:12px;padding:13px 15px;box-shadow:0 14px 34px rgba(0,0,0,.45);transform:rotate(-1deg);display:flex;flex-direction:column;gap:7px">
+                  <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#C8472B">READ · 3 MIN</div>
+                  <div style="font-size:14px;font-weight:600;line-height:1.32;color:#1A1814">'Weaving Light' opens downtown this weekend</div>
+                  <div style="font-size:10.5px;color:rgba(26,24,20,.45)">portland monthly · opens in app ↗</div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </x-import>
+        </div>
+
+        <div data-screen-label="B · Chat room">
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="position:relative;height:100%;overflow:hidden;font-family:'Geist',-apple-system,sans-serif;background:#F5EFE4">
+            <div style="position:absolute;inset:0;background:radial-gradient(circle at 85% 4%,rgba(232,180,110,.28),rgba(232,180,110,0) 55%);pointer-events:none;z-index:5"></div>
+
+            <!-- collapsing header, framed -->
+            <div style="position:relative;height:198px;overflow:hidden;border-bottom:5px solid #5C4C3B">
+              <div style="position:absolute;inset:0">
+                <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="yoshi-b-chat" shape="rect" placeholder="Drop your Yoshi" hint-size="402px,198px"></x-import>
+              </div>
+              <div style="position:absolute;left:0;right:0;bottom:0;height:96px;background:linear-gradient(180deg,rgba(30,24,18,0),rgba(30,24,18,.58));pointer-events:none"></div>
+              <div style="position:absolute;left:18px;bottom:12px;pointer-events:none">
+                <div style="font-size:20px;font-weight:600;color:#FFFFFF;letter-spacing:-.01em">Yoshi</div>
+                <div style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:13px;color:rgba(255,255,255,.85)">in her room — the lamp's on</div>
+              </div>
+              <div style="position:absolute;top:66px;left:16px;width:38px;height:38px;border-radius:50%;background:rgba(20,18,15,.30);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center">
+                <div style="width:9px;height:9px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(45deg) translate(1px,-1px)"></div>
+              </div>
+            </div>
+
+            <div style="display:flex;justify-content:center;padding:8px 0 0">
+              <div style="position:relative;width:56px;height:20px;border-radius:12px;background:rgba(26,24,20,.06);display:flex;align-items:center;justify-content:center;cursor:pointer">
+                <div style="width:8px;height:8px;border-right:1.8px solid #6B6257;border-bottom:1.8px solid #6B6257;transform:rotate(45deg) translate(-2px,-2px)"></div>
+                <div style="position:absolute;top:-4px;right:-4px;width:14px;height:14px;border-radius:50%;background:#C8472B;color:#fff;font:600 8.5px 'Geist',sans-serif;display:flex;align-items:center;justify-content:center">2</div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:10px;padding:10px 16px 96px">
+              <div style="text-align:center;font:500 9.5px 'JetBrains Mono',monospace;letter-spacing:.14em;color:rgba(26,24,20,.38)">TODAY · 6:10 PM</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="flex:1;height:1px;background:rgba(26,24,20,.09)"></div>
+                <div style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#C8472B;background:rgba(200,71,43,.09);border-radius:99px;padding:4px 11px">✦ topic started — one-pan miso pasta</div>
+                <div style="flex:1;height:1px;background:rgba(26,24,20,.09)"></div>
+              </div>
+              <div style="max-width:78%;align-self:flex-start;background:#FFFFFF;border:1px solid rgba(26,24,20,.07);border-radius:18px 18px 18px 5px;padding:10px 14px;font-size:15px;line-height:1.45;color:#2A2620">Found a one-pan miso butter pasta that takes twenty minutes. I feel like this is very us.</div>
+              <div style="max-width:78%;align-self:flex-end;background:#2A2620;border-radius:18px 18px 5px 18px;padding:10px 14px;font-size:15px;line-height:1.45;color:#F7F5F0">ok that does sound very us</div>
+              <div style="max-width:78%;align-self:flex-start;background:#FFFFFF;border:1px solid rgba(26,24,20,.10);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;box-shadow:0 4px 14px rgba(26,24,20,.06)">
+                <div style="font:600 8.5px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#C8472B">READ · BON APPÉTIT</div>
+                <div style="font-size:13.5px;font-weight:600;line-height:1.3;color:#1A1814">One-pan miso butter pasta for tired weeknights</div>
+                <div style="font-size:10.5px;color:rgba(26,24,20,.45)">opens in app ↗</div>
+              </div>
+              <div style="text-align:center;font:500 9.5px 'JetBrains Mono',monospace;letter-spacing:.14em;color:rgba(26,24,20,.38);padding-top:4px">YOU READ THE ARTICLE · 6:24 PM</div>
+              <div style="max-width:78%;align-self:flex-start;background:#FFFFFF;border:1px solid rgba(26,24,20,.07);border-radius:18px 18px 18px 5px;padding:10px 14px;font-size:15px;line-height:1.45;color:#2A2620">So? Are we making it this week — Thursday?</div>
+              <div style="max-width:78%;align-self:flex-end;background:#2A2620;border-radius:18px 18px 5px 18px;padding:10px 14px;font-size:15px;line-height:1.45;color:#F7F5F0">thursday works</div>
+            </div>
+
+            <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 14px 38px;background:linear-gradient(180deg,rgba(245,239,228,0),rgba(245,239,228,.92) 34%);display:flex;gap:10px;align-items:center;z-index:6">
+              <div style="flex:1;height:44px;border-radius:22px;background:#FFFFFF;border:1px solid rgba(26,24,20,.09);display:flex;align-items:center;padding:0 18px;font-size:15px;color:rgba(26,24,20,.38)">Message Yoshi…</div>
+              <div style="width:44px;height:44px;border-radius:50%;background:#C8472B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;box-shadow:0 8px 18px rgba(200,71,43,.32)">↑</div>
+            </div>
+          </div>
+        </x-import>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ 1c — DIRECTION C: THE NOTE SHE LEFT ═══════════════════════ -->
+    <div class="dv-opt" id="1c">
+      <div class="dv-olabel"><a class="dv-oid" href="#1c">1c</a>Direction C — "The Note She Left" · full-bleed image, the stack is the drawer · spin the dial to change weather · tap = ripple · press &amp; hold = heartbeat glow (no tilt — the image is the whole screen)</div>
+      <div class="dv-card" style="padding:28px;display:flex;gap:28px">
+
+        <div data-screen-label="C · Homepage">
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="position:relative;height:100%;overflow:hidden;font-family:'Geist',-apple-system,sans-serif;background:#3A322A">
+
+            <!-- full-bleed yoshi (tap = ripple, hold = glow) -->
+            <div onClick="{{ tapC }}" onMouseDown="{{ pressC }}" onMouseUp="{{ releaseC }}" onMouseLeave="{{ leaveC }}" style="position:absolute;inset:0">
+              <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="yoshi-c" shape="rect" placeholder="Drop your Yoshi — fills the whole screen" hint-size="402px,874px"></x-import>
+            </div>
+            <!-- weather glass over everything (driven by the spin dial) -->
+            <div style="position:absolute;inset:0;pointer-events:none;overflow:hidden">
+              <sc-if value="{{ weatherCSun }}" hint-placeholder-val="{{ true }}">
+                <div style="position:absolute;inset:0;background:linear-gradient(210deg,rgba(255,206,140,.42),rgba(255,206,140,0) 44%)"></div>
+                <div style="position:absolute;top:96px;right:64px;width:74px;height:74px;border-radius:50%;background:radial-gradient(circle,rgba(255,240,210,.55),rgba(255,240,210,0) 70%)"></div>
+                <div style="position:absolute;top:196px;right:130px;width:30px;height:30px;border-radius:50%;background:rgba(255,225,170,.30)"></div>
+                <div style="position:absolute;top:262px;right:176px;width:14px;height:14px;border-radius:50%;background:rgba(255,225,170,.24)"></div>
+              </sc-if>
+              <sc-if value="{{ weatherCRain }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;inset:0;background:linear-gradient(205deg,rgba(150,170,190,.26),rgba(150,170,190,.06) 60%)"></div>
+                <div style="position:absolute;top:130px;left:70px;width:12px;height:17px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.8),rgba(255,255,255,.12) 62%,rgba(120,140,160,.18))"></div>
+                <div style="position:absolute;top:230px;left:250px;width:15px;height:20px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.8),rgba(255,255,255,.12) 62%,rgba(120,140,160,.18))"></div>
+                <div style="position:absolute;top:330px;left:130px;width:10px;height:14px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.75),rgba(255,255,255,.1) 62%,rgba(120,140,160,.16))"></div>
+                <div style="position:absolute;top:430px;left:300px;width:11px;height:15px;border-radius:50%;background:radial-gradient(circle at 35% 30%,rgba(255,255,255,.75),rgba(255,255,255,.1) 62%,rgba(120,140,160,.16))"></div>
+                <div style="position:absolute;top:160px;left:180px;width:2.5px;height:52px;border-radius:2px;background:linear-gradient(180deg,rgba(255,255,255,.55),rgba(255,255,255,0))"></div>
+                <div style="position:absolute;top:300px;left:330px;width:2.5px;height:40px;border-radius:2px;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0))"></div>
+                <div style="position:absolute;top:380px;left:60px;width:2.5px;height:44px;border-radius:2px;background:linear-gradient(180deg,rgba(255,255,255,.45),rgba(255,255,255,0))"></div>
+              </sc-if>
+              <sc-if value="{{ weatherCSnow }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;inset:0;background:linear-gradient(200deg,rgba(226,232,240,.24),rgba(226,232,240,.04) 60%)"></div>
+                <div style="position:absolute;top:140px;left:90px;width:6px;height:6px;border-radius:50%;background:rgba(255,255,255,.85)"></div>
+                <div style="position:absolute;top:220px;left:280px;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.75)"></div>
+                <div style="position:absolute;top:300px;left:160px;width:4.5px;height:4.5px;border-radius:50%;background:rgba(255,255,255,.7)"></div>
+                <div style="position:absolute;top:390px;left:320px;width:5.5px;height:5.5px;border-radius:50%;background:rgba(255,255,255,.8)"></div>
+                <div style="position:absolute;top:460px;left:70px;width:4.5px;height:4.5px;border-radius:50%;background:rgba(255,255,255,.7)"></div>
+                <div style="position:absolute;top:520px;left:220px;width:5px;height:5px;border-radius:50%;background:rgba(255,255,255,.75)"></div>
+                <div style="position:absolute;bottom:-10px;left:0;right:0;height:44px;background:radial-gradient(ellipse at 50% 100%,rgba(255,255,255,.9),rgba(255,255,255,0) 80%)"></div>
+              </sc-if>
+              <div style="position:absolute;inset:0;background:linear-gradient(180deg,rgba(20,14,8,.18),rgba(20,14,8,0) 22%,rgba(20,14,8,0) 55%,rgba(20,14,8,.34) 100%)"></div>
+              {{ rippleC }}
+              <sc-if value="{{ glowC }}" hint-placeholder-val="{{ false }}">
+                <div style="position:absolute;inset:0;box-shadow:inset 0 0 130px 34px rgba(226,140,90,.55);animation:yoshiHeartbeat 1.15s ease-in-out infinite"></div>
+              </sc-if>
+            </div>
+
+            <!-- hamburger -->
+            <div style="position:absolute;top:72px;left:20px;width:44px;height:44px;border-radius:50%;background:rgba(20,16,10,.28);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.16);display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;z-index:10">
+              <div style="width:15px;height:1.8px;border-radius:2px;background:rgba(255,255,255,.9)"></div>
+              <div style="width:15px;height:1.8px;border-radius:2px;background:rgba(255,255,255,.9)"></div>
+            </div>
+
+            <!-- floating status line -->
+            <div style="position:absolute;top:78px;left:50%;transform:translateX(-50%);z-index:10;display:flex;align-items:center;gap:7px;background:rgba(20,16,10,.28);backdrop-filter:blur(10px);border:1px solid rgba(255,255,255,.16);border-radius:99px;padding:7px 14px">
+              <div style="width:5px;height:5px;border-radius:50%;background:#FFD9A0;animation:yoshiPulse 2.6s ease-in-out infinite"></div>
+              <div style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:13.5px;color:rgba(255,255,255,.94);white-space:nowrap">saving things to tell you ☀️</div>
+            </div>
+
+            <!-- weather spin dial (manual override) -->
+            <div onClick="{{ spinDialC }}" style="position:absolute;bottom:36px;left:20px;z-index:10;display:flex;flex-direction:column;align-items:center;gap:6px;cursor:pointer">
+              <div style="position:relative;width:46px;height:46px;border-radius:50%;background:rgba(20,16,10,.30);border:1px solid rgba(255,255,255,.18);backdrop-filter:blur(10px);box-shadow:0 8px 20px rgba(20,14,8,.25)">
+                <div style="position:absolute;top:8px;left:9px;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.35)"></div>
+                <div style="position:absolute;top:4px;left:50%;margin-left:-1.5px;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.35)"></div>
+                <div style="position:absolute;top:8px;right:9px;width:3px;height:3px;border-radius:50%;background:rgba(255,255,255,.35)"></div>
+                <div style="position:absolute;inset:0;transform:rotate({{ dialAngleC }});transition:transform .45s cubic-bezier(.3,1.5,.5,1)">
+                  <div style="position:absolute;top:7px;left:50%;margin-left:-1.5px;width:3px;height:12px;border-radius:2px;background:#FFD9A0"></div>
+                </div>
+              </div>
+              <div style="font:500 8.5px 'JetBrains Mono',monospace;letter-spacing:.14em;color:rgba(255,255,255,.85);text-shadow:0 1px 5px rgba(20,14,8,.5);white-space:nowrap">{{ weatherLabelC }}</div>
+            </div>
+
+            <!-- chat FAB -->
+            <div style="position:absolute;bottom:36px;right:20px;z-index:10;width:54px;height:54px;border-radius:50%;background:rgba(255,255,255,.92);backdrop-filter:blur(10px);box-shadow:0 12px 28px rgba(20,14,8,.35);display:flex;align-items:center;justify-content:center">
+              <div style="position:relative;width:22px;height:17px;border-radius:8px;background:#C8472B">
+                <div style="position:absolute;left:4px;bottom:-3px;width:7px;height:7px;background:#C8472B;border-radius:1px;transform:rotate(45deg)"></div>
+              </div>
+            </div>
+
+            <!-- collapsed stack (lock-screen style) -->
+            <sc-if value="{{ fanCClosed }}" hint-placeholder-val="{{ true }}">
+              <div onClick="{{ toggleFanC }}" style="position:absolute;left:20px;right:20px;bottom:104px;z-index:9;cursor:pointer">
+                <div style="background:rgba(255,255,255,.90);backdrop-filter:blur(14px);border-radius:20px;padding:13px 16px;box-shadow:0 16px 40px rgba(20,14,8,.35);display:flex;flex-direction:column;gap:6px">
+                  <div style="display:flex;align-items:center;justify-content:space-between">
+                    <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.14em;color:#C8472B">✦ FROM YOSHI</div>
+                    <div style="font:500 9px 'JetBrains Mono',monospace;color:rgba(26,24,20,.4)">2:14 PM</div>
+                  </div>
+                  <div style="font-size:14.5px;line-height:1.4;color:#1A1814">I read something about the Spa race — wanna hear?</div>
+                </div>
+                <div style="display:flex;justify-content:center"><div style="width:88%;height:11px;border-radius:0 0 14px 14px;background:rgba(255,255,255,.55)"></div></div>
+                <div style="display:flex;justify-content:center"><div style="width:76%;height:9px;border-radius:0 0 12px 12px;background:rgba(255,255,255,.32)"></div></div>
+                <div style="text-align:center;padding-top:10px;font:500 9px 'JetBrains Mono',monospace;letter-spacing:.16em;color:rgba(255,255,255,.8);text-shadow:0 1px 6px rgba(20,14,8,.5)">SWIPE UP · 3 WAITING</div>
+              </div>
+            </sc-if>
+
+            <!-- fanned stack -->
+            <sc-if value="{{ fanC }}" hint-placeholder-val="{{ false }}">
+              <div style="position:absolute;left:20px;right:20px;bottom:104px;z-index:9;display:flex;flex-direction:column;gap:9px;animation:yoshiFanUp .35s ease">
+                <div style="display:flex;align-items:center;justify-content:space-between;padding:0 4px">
+                  <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.16em;color:rgba(255,255,255,.85);text-shadow:0 1px 6px rgba(20,14,8,.5)">3 TOPICS WAITING</div>
+                  <div onClick="{{ toggleFanC }}" style="width:26px;height:26px;border-radius:50%;background:rgba(20,16,10,.35);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center;cursor:pointer;font-size:12px;color:#fff">✕</div>
+                </div>
+                <div style="background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border-radius:18px;padding:12px 16px;box-shadow:0 12px 30px rgba(20,14,8,.3);display:flex;flex-direction:column;gap:5px">
+                  <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#C8472B">CHAT · TAP TO START</div>
+                  <div style="font-size:14px;line-height:1.38;color:#1A1814">I read something about the Spa race — wanna hear?</div>
+                </div>
+                <div style="background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border-radius:18px;padding:12px 16px;box-shadow:0 12px 30px rgba(20,14,8,.3);display:flex;flex-direction:column;gap:5px">
+                  <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#C8472B">READ · 3 MIN · PORTLAND MONTHLY</div>
+                  <div style="font-size:14px;line-height:1.38;color:#1A1814">'Weaving Light' opens downtown this weekend</div>
+                </div>
+                <div style="background:rgba(255,255,255,.92);backdrop-filter:blur(14px);border-radius:18px;padding:12px 16px;box-shadow:0 12px 30px rgba(20,14,8,.3);display:flex;flex-direction:column;gap:5px">
+                  <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#C8472B">CHAT</div>
+                  <div style="font-size:14px;line-height:1.38;color:#1A1814">Wanna trade easy dinner ideas? I found a one-pan miso pasta</div>
+                </div>
+                <div style="background:rgba(38,52,32,.88);backdrop-filter:blur(14px);border-radius:18px;padding:12px 16px;box-shadow:0 12px 30px rgba(20,14,8,.3);display:flex;align-items:center;gap:11px">
+                  <div style="width:30px;height:30px;border-radius:50%;background:rgba(255,255,255,.12);display:flex;align-items:flex-end;justify-content:center;gap:2px;padding-bottom:9px;box-sizing:border-box">
+                    <div style="width:2.5px;height:7px;border-radius:2px;background:#9CC284;transform:rotate(-14deg)"></div>
+                    <div style="width:2.5px;height:10px;border-radius:2px;background:#B4D69C"></div>
+                    <div style="width:2.5px;height:7px;border-radius:2px;background:#9CC284;transform:rotate(14deg)"></div>
+                  </div>
+                  <div style="display:flex;flex-direction:column;gap:2px">
+                    <div style="font:600 9px 'JetBrains Mono',monospace;letter-spacing:.12em;color:rgba(255,255,255,.6)">THE GAME</div>
+                    <div style="font-size:14px;color:#fff">Mow the lawn with me · 2 min</div>
+                  </div>
+                </div>
+              </div>
+            </sc-if>
+          </div>
+        </x-import>
+        </div>
+
+        <div data-screen-label="C · Chat room">
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" hint-size="402px,874px">
+          <div style="position:relative;height:100%;overflow:hidden;font-family:'Geist',-apple-system,sans-serif;background:linear-gradient(180deg,#F6EEDF 0%,#F5F1E8 40%,#F5F1E8 100%)">
+
+            <div style="position:relative;height:198px;overflow:hidden">
+              <div style="position:absolute;inset:0">
+                <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="yoshi-c-chat" shape="rect" placeholder="Drop your Yoshi" hint-size="402px,198px"></x-import>
+              </div>
+              <div style="position:absolute;inset:0;background:linear-gradient(210deg,rgba(255,206,140,.30),rgba(255,206,140,0) 50%);pointer-events:none"></div>
+              <div style="position:absolute;left:0;right:0;bottom:0;height:96px;background:linear-gradient(180deg,rgba(30,22,12,0),rgba(30,22,12,.55));pointer-events:none"></div>
+              <div style="position:absolute;left:18px;bottom:12px;pointer-events:none">
+                <div style="font-size:20px;font-weight:600;color:#FFFFFF;letter-spacing:-.01em">Yoshi</div>
+                <div style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:13px;color:rgba(255,255,255,.85)">out in the sun</div>
+              </div>
+              <div style="position:absolute;top:66px;left:16px;width:38px;height:38px;border-radius:50%;background:rgba(20,18,15,.30);backdrop-filter:blur(8px);display:flex;align-items:center;justify-content:center">
+                <div style="width:9px;height:9px;border-left:2px solid #fff;border-bottom:2px solid #fff;transform:rotate(45deg) translate(1px,-1px)"></div>
+              </div>
+            </div>
+
+            <div style="display:flex;flex-direction:column;gap:10px;padding:14px 16px 96px">
+              <div style="text-align:center;font:500 9.5px 'JetBrains Mono',monospace;letter-spacing:.14em;color:rgba(26,24,20,.38)">TODAY · 2:14 PM</div>
+              <div style="display:flex;align-items:center;gap:10px">
+                <div style="flex:1;height:1px;background:rgba(26,24,20,.09)"></div>
+                <div style="font:500 10px 'JetBrains Mono',monospace;letter-spacing:.06em;color:#C8472B;background:rgba(200,71,43,.09);border-radius:99px;padding:4px 11px">✦ topic started — weaving light</div>
+                <div style="flex:1;height:1px;background:rgba(26,24,20,.09)"></div>
+              </div>
+              <div style="max-width:78%;align-self:flex-start;background:#FFFFFF;border:1px solid rgba(26,24,20,.07);border-radius:18px 18px 18px 5px;padding:10px 14px;font-size:15px;line-height:1.45;color:#2A2620">That light exhibition opens Saturday, ten minutes from you. It looks like the kind of thing you'd love and never actually book.</div>
+              <div style="max-width:78%;align-self:flex-end;background:#2A2620;border-radius:18px 18px 5px 18px;padding:10px 14px;font-size:15px;line-height:1.45;color:#F7F5F0">wow. attacked. but yes</div>
+              <div style="max-width:78%;align-self:flex-start;background:#FFFFFF;border:1px solid rgba(26,24,20,.10);border-radius:14px;padding:12px 14px;display:flex;flex-direction:column;gap:6px;box-shadow:0 4px 14px rgba(26,24,20,.06)">
+                <div style="font:600 8.5px 'JetBrains Mono',monospace;letter-spacing:.12em;color:#C8472B">READ · PORTLAND MONTHLY</div>
+                <div style="font-size:13.5px;font-weight:600;line-height:1.3;color:#1A1814">'Weaving Light' opens downtown this weekend</div>
+                <div style="font-size:10.5px;color:rgba(26,24,20,.45)">opens in app ↗</div>
+              </div>
+              <div style="text-align:center;font:500 9.5px 'JetBrains Mono',monospace;letter-spacing:.14em;color:rgba(26,24,20,.38);padding-top:4px">YOU READ THE ARTICLE · 2:31 PM</div>
+              <div style="max-width:78%;align-self:flex-start;background:#FFFFFF;border:1px solid rgba(26,24,20,.07);border-radius:18px 18px 18px 5px;padding:10px 14px;font-size:15px;line-height:1.45;color:#2A2620">So — what did you think? Should I remind you Saturday morning?</div>
+              <div style="max-width:78%;align-self:flex-end;background:#2A2620;border-radius:18px 18px 5px 18px;padding:10px 14px;font-size:15px;line-height:1.45;color:#F7F5F0">yes please</div>
+            </div>
+
+            <div style="position:absolute;left:0;right:0;bottom:0;padding:12px 14px 38px;background:linear-gradient(180deg,rgba(245,241,232,0),rgba(245,241,232,.92) 34%);display:flex;gap:10px;align-items:center">
+              <div style="flex:1;height:44px;border-radius:22px;background:#FFFFFF;border:1px solid rgba(26,24,20,.09);display:flex;align-items:center;padding:0 18px;font-size:15px;color:rgba(26,24,20,.38)">Message Yoshi…</div>
+              <div style="width:44px;height:44px;border-radius:50%;background:#C8472B;display:flex;align-items:center;justify-content:center;color:#fff;font-size:18px;font-weight:700;box-shadow:0 8px 18px rgba(200,71,43,.32)">↑</div>
+            </div>
+          </div>
+        </x-import>
+        </div>
+
+      </div>
+    </div>
+
+    <!-- ═══════════════════════ 1d — DIRECTION A, NIGHT / QUIET STATE ═══════════════════════ -->
+    <div class="dv-opt" id="1d">
+      <div class="dv-olabel"><a class="dv-oid" href="#1d">1d</a>Direction A remix — night, quiet state · ring neutral, no topics, she's asleep</div>
+      <div class="dv-card" style="padding:28px">
+
+        <div data-screen-label="D · Homepage (night)">
+        <x-import component-from-global-scope="IOSDevice" from="./ios-frame.jsx" dark="{{ true }}" hint-size="402px,874px">
+          <div style="position:relative;height:100%;overflow:hidden;font-family:'Geist',-apple-system,sans-serif;background:linear-gradient(180deg,#171512 0%,#1E1B17 55%,#242018 100%)">
+
+            <!-- moonlight -->
+            <div style="position:absolute;top:-60px;left:-40px;width:320px;height:320px;border-radius:50%;background:radial-gradient(circle,rgba(214,222,235,.10),rgba(214,222,235,0) 70%);pointer-events:none"></div>
+
+            <!-- hamburger -->
+            <div style="position:absolute;top:72px;left:20px;width:44px;height:44px;border-radius:50%;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.10);display:flex;flex-direction:column;gap:4px;align-items:center;justify-content:center;z-index:10">
+              <div style="width:15px;height:1.8px;border-radius:2px;background:rgba(255,255,255,.65)"></div>
+              <div style="width:15px;height:1.8px;border-radius:2px;background:rgba(255,255,255,.65)"></div>
+            </div>
+
+            <!-- quiet handle, no badge -->
+            <div style="position:absolute;top:72px;left:50%;transform:translateX(-50%);z-index:10;width:66px;height:26px;border-radius:14px;background:rgba(255,255,255,.06);border:1px solid rgba(255,255,255,.08);display:flex;align-items:center;justify-content:center">
+              <div style="width:9px;height:9px;border-right:2px solid rgba(255,255,255,.4);border-bottom:2px solid rgba(255,255,255,.4);transform:rotate(45deg) translate(-2px,-2px)"></div>
+            </div>
+
+            <!-- depth echo -->
+            <div style="position:absolute;top:250px;left:50%;transform:translate(calc(-50% + 12px),16px);width:268px;height:268px;border-radius:50%;border:1px solid rgba(255,255,255,.06)"></div>
+
+            <!-- neutral ring + sleeping yoshi -->
+            <div style="position:absolute;top:236px;left:50%;transform:translateX(-50%);width:272px;height:272px">
+              <div style="width:272px;height:272px;border-radius:50%;padding:5px;box-sizing:border-box;background:rgba(255,255,255,.10);box-shadow:0 22px 55px rgba(0,0,0,.5)">
+                <div style="width:100%;height:100%;border-radius:50%;padding:5px;box-sizing:border-box;background:#1E1B17">
+                  <div style="position:relative;width:100%;height:100%;border-radius:50%;overflow:hidden">
+                    <x-import component-from-global-scope="image-slot" from="./image-slot.js" id="yoshi-d" shape="circle" placeholder="Drop your Yoshi" hint-size="242px,242px"></x-import>
+                    <!-- night glass: dim + moon glint -->
+                    <div style="position:absolute;inset:0;border-radius:50%;pointer-events:none">
+                      <div style="position:absolute;inset:0;border-radius:50%;background:radial-gradient(circle at 50% 42%,rgba(10,9,7,.12),rgba(10,9,7,.55) 92%)"></div>
+                      <div style="position:absolute;top:24px;right:44px;width:10px;height:10px;border-radius:50%;background:rgba(224,230,240,.75);box-shadow:0 0 14px rgba(224,230,240,.5)"></div>
+                      <div style="position:absolute;inset:0;background:linear-gradient(215deg,rgba(214,222,235,.10),rgba(214,222,235,0) 40%)"></div>
+                    </div>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <!-- status: sleeping -->
+            <div style="position:absolute;top:552px;left:0;right:0;display:flex;flex-direction:column;align-items:center;gap:6px">
+              <div style="display:flex;align-items:center;gap:8px">
+                <div style="width:6px;height:6px;border-radius:50%;background:rgba(214,222,235,.5);animation:yoshiPulse 4s ease-in-out infinite"></div>
+                <div style="font-family:'Instrument Serif',Georgia,serif;font-style:italic;font-size:17.5px;color:rgba(235,230,220,.75)">sleeping — same sky, same rain</div>
+              </div>
+              <div style="font:500 9px 'JetBrains Mono',monospace;letter-spacing:.16em;color:rgba(235,230,220,.30)">NEW TOPICS IN THE MORNING</div>
+            </div>
+
+            <!-- dimmed FABs -->
+            <div style="position:absolute;bottom:44px;right:22px;display:flex;flex-direction:column;align-items:center;gap:12px;z-index:10">
+              <div style="width:46px;height:46px;border-radius:50%;background:rgba(255,255,255,.07);border:1px solid rgba(255,255,255,.09);display:flex;align-items:flex-end;justify-content:center;gap:2.5px;padding-bottom:15px;box-sizing:border-box">
+                <div style="width:3px;height:9px;border-radius:2px;background:rgba(158,200,132,.55);transform:rotate(-14deg)"></div>
+                <div style="width:3px;height:13px;border-radius:2px;background:rgba(158,200,132,.7)"></div>
+                <div style="width:3px;height:8px;border-radius:2px;background:rgba(158,200,132,.55);transform:rotate(14deg)"></div>
+              </div>
+              <div style="width:58px;height:58px;border-radius:50%;background:#A63A22;box-shadow:0 14px 30px rgba(0,0,0,.45);display:flex;align-items:center;justify-content:center">
+                <div style="position:relative;width:24px;height:19px;border-radius:9px;background:#F3E4DA">
+                  <div style="position:absolute;left:4px;bottom:-3px;width:8px;height:8px;background:#F3E4DA;border-radius:1px;transform:rotate(45deg)"></div>
+                </div>
+              </div>
+            </div>
+          </div>
+        </x-import>
+        </div>
+
+      </div>
+    </div>
+
+  </div>
+  <p class="dv-next">Try next: "give me 4 riffs on <a class="dv-oid" href="#1a">1a</a>'s homepage" · "put <a class="dv-oid" href="#1b">1b</a>'s note idea onto <a class="dv-oid" href="#1a">1a</a>" · "show <a class="dv-oid" href="#1c">1c</a> in rain instead of sun"</p>
+</section>
+
+</x-dc>
+<script type="text/x-dc" data-dc-script>
+class Component extends DCLogic {
+  state = {
+    drawerA: false, drawerB: false, fanC: false,
+    weatherA: 'rain', glowA: false, ripple: null, tiltA: 'none',
+    weatherC: 'sun', glowC: false, rippleC: null,
+    drawer2: false, seen2: false, idx2: 0,
+  };
+
+  componentWillUnmount() {
+    clearTimeout(this._holdT);
+    clearTimeout(this._rippleT);
+  }
+
+  renderVals() {
+    const WEATHER = {
+      rain: { bg: 'linear-gradient(180deg,#E5EAEE 0%,#EFEDE7 52%,#F7F5F0 100%)', label: 'RAIN · LIVE', angle: '0deg' },
+      sun:  { bg: 'linear-gradient(180deg,#F6ECD9 0%,#F3EEE3 50%,#F7F5F0 100%)', label: 'SUN · MANUAL', angle: '120deg' },
+      snow: { bg: 'linear-gradient(180deg,#ECEEF1 0%,#F2F1EC 50%,#F8F7F3 100%)', label: 'SNOW · MANUAL', angle: '240deg' },
+    };
+    const order = ['rain', 'sun', 'snow'];
+    const w = WEATHER[this.state.weatherA];
+
+    const ripple = this.state.ripple
+      ? React.createElement('div', {
+          key: this.state.ripple.key,
+          style: {
+            position: 'absolute',
+            left: this.state.ripple.x + '%', top: this.state.ripple.y + '%',
+            width: 130, height: 130, marginLeft: -65, marginTop: -65,
+            borderRadius: '50%', border: '2px solid rgba(255,255,255,.85)',
+            boxShadow: 'inset 0 0 18px rgba(255,255,255,.35)',
+            animation: 'yoshiRipple .8s ease-out forwards', pointerEvents: 'none',
+          },
+        })
+      : null;
+
+    return {
+      drawerA: this.state.drawerA,
+      drawerB: this.state.drawerB,
+      fanC: this.state.fanC,
+      fanCClosed: !this.state.fanC,
+      toggleDrawerA: () => this.setState((s) => ({ drawerA: !s.drawerA })),
+      toggleDrawerB: () => this.setState((s) => ({ drawerB: !s.drawerB })),
+      toggleFanC: () => this.setState((s) => ({ fanC: !s.fanC })),
+
+      drawer2: this.state.drawer2,
+      badge2: !this.state.seen2 && !this.state.drawer2,
+      chev2: this.state.drawer2 ? 'rotate(225deg)' : 'rotate(45deg)',
+      chevMt2: this.state.drawer2 ? '6px' : '-5px',
+      toggle2: () => this.setState((s) => ({ drawer2: !s.drawer2, seen2: true, idx2: s.drawer2 ? s.idx2 : 0 })),
+      carouselScroll2: (e) => {
+        const el = e.currentTarget;
+        const idx = Math.round(el.scrollLeft / 330);
+        if (idx !== this.state.idx2) this.setState({ idx2: Math.max(0, Math.min(2, idx)) });
+      },
+      dot2a: this.state.idx2 === 0 ? '#fff' : 'transparent',
+      dot2b: this.state.idx2 === 1 ? '#fff' : 'transparent',
+      dot2c: this.state.idx2 === 2 ? '#fff' : 'transparent',
+      bgA: w.bg,
+      weatherLabelA: w.label,
+      dialAngleA: w.angle,
+      weatherARain: this.state.weatherA === 'rain',
+      weatherASun: this.state.weatherA === 'sun',
+      weatherASnow: this.state.weatherA === 'snow',
+      spinDialA: () => this.setState((s) => ({
+        weatherA: order[(order.indexOf(s.weatherA) + 1) % order.length],
+      })),
+
+      glowA: this.state.glowA,
+      rippleA: ripple,
+      tiltA: this.state.tiltA,
+
+      tapA: (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - r.left) / r.width) * 100;
+        const y = ((e.clientY - r.top) / r.height) * 100;
+        clearTimeout(this._rippleT);
+        this.setState({ ripple: { x, y, key: Date.now() } });
+        this._rippleT = setTimeout(() => this.setState({ ripple: null }), 900);
+      },
+      pressA: () => {
+        clearTimeout(this._holdT);
+        this._holdT = setTimeout(() => this.setState({ glowA: true }), 350);
+      },
+      releaseA: () => {
+        clearTimeout(this._holdT);
+        this.setState({ glowA: false });
+      },
+      weatherCSun: this.state.weatherC === 'sun',
+      weatherCRain: this.state.weatherC === 'rain',
+      weatherCSnow: this.state.weatherC === 'snow',
+      weatherLabelC: ({ sun: 'SUN · LIVE', rain: 'RAIN · MANUAL', snow: 'SNOW · MANUAL' })[this.state.weatherC],
+      dialAngleC: ({ sun: '0deg', rain: '120deg', snow: '240deg' })[this.state.weatherC],
+      spinDialC: () => this.setState((s) => ({
+        weatherC: ['sun', 'rain', 'snow'][(['sun', 'rain', 'snow'].indexOf(s.weatherC) + 1) % 3],
+      })),
+      glowC: this.state.glowC,
+      rippleC: this.state.rippleC
+        ? React.createElement('div', {
+            key: this.state.rippleC.key,
+            style: {
+              position: 'absolute',
+              left: this.state.rippleC.x + '%', top: this.state.rippleC.y + '%',
+              width: 150, height: 150, marginLeft: -75, marginTop: -75,
+              borderRadius: '50%', border: '2px solid rgba(255,255,255,.85)',
+              boxShadow: 'inset 0 0 20px rgba(255,255,255,.35)',
+              animation: 'yoshiRipple .8s ease-out forwards', pointerEvents: 'none',
+            },
+          })
+        : null,
+      tapC: (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const x = ((e.clientX - r.left) / r.width) * 100;
+        const y = ((e.clientY - r.top) / r.height) * 100;
+        clearTimeout(this._rippleCT);
+        this.setState({ rippleC: { x, y, key: Date.now() } });
+        this._rippleCT = setTimeout(() => this.setState({ rippleC: null }), 900);
+      },
+      pressC: () => {
+        clearTimeout(this._holdCT);
+        this._holdCT = setTimeout(() => this.setState({ glowC: true }), 350);
+      },
+      releaseC: () => {
+        clearTimeout(this._holdCT);
+        this.setState({ glowC: false });
+      },
+      leaveC: () => {
+        clearTimeout(this._holdCT);
+        this.setState({ glowC: false });
+      },
+      moveA: (e) => {
+        const r = e.currentTarget.getBoundingClientRect();
+        const dx = (e.clientX - (r.left + r.width / 2)) / r.width;
+        const dy = (e.clientY - (r.top + r.height / 2)) / r.height;
+        this.setState({ tiltA: 'rotateY(' + (dx * 9).toFixed(1) + 'deg) rotateX(' + (-dy * 9).toFixed(1) + 'deg)' });
+      },
+      leaveA: () => {
+        clearTimeout(this._holdT);
+        this.setState({ tiltA: 'none', glowA: false });
+      },
+    };
+  }
+}
+
+</script>
+</body>
+</html>
