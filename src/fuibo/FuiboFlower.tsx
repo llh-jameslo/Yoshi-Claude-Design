@@ -36,6 +36,12 @@ const INITIAL_THREAD: Msg[] = [
 const TITLE_TOP = 136
 const TITLE_TO_HERO_GAP = 15
 
+/** Homepage palette (Aureolin yellow + brown) */
+const HOME_YELLOW = '#FBE311'
+const HOME_BROWN = '#46281E'
+const HOME_BROWN_SOFT = 'rgba(70,40,30,0.18)'
+const HOME_BROWN_MID = 'rgba(70,40,30,0.28)'
+
 function ChatBubbleIcon() {
   return (
     <div
@@ -44,7 +50,7 @@ function ChatBubbleIcon() {
         width: 23,
         height: 18,
         borderRadius: 8,
-        background: '#FFF8F3',
+        background: HOME_YELLOW,
       }}
     >
       <div
@@ -54,7 +60,7 @@ function ChatBubbleIcon() {
           bottom: -3,
           width: 7,
           height: 7,
-          background: '#FFF8F3',
+          background: HOME_YELLOW,
           borderRadius: 1,
           transform: 'rotate(45deg)',
         }}
@@ -69,8 +75,8 @@ function Chevron({ open }: { open: boolean }) {
       style={{
         width: 11,
         height: 11,
-        borderRight: '2.5px solid #17151C',
-        borderBottom: '2.5px solid #17151C',
+        borderRight: `2.5px solid ${HOME_BROWN}`,
+        borderBottom: `2.5px solid ${HOME_BROWN}`,
         transform: open ? 'rotate(225deg)' : 'rotate(45deg)',
         transition: 'transform .3s ease',
         marginTop: open ? 6 : -5,
@@ -252,7 +258,7 @@ export function FuiboFlower({
         height: '100%',
         overflow: 'hidden',
         fontFamily: "'Geist', -apple-system, sans-serif",
-        background: '#E9E6F8',
+        background: HOME_YELLOW,
       }}
     >
       <div
@@ -286,7 +292,7 @@ export function FuiboFlower({
               width: 22,
               height: 2.5,
               borderRadius: 2,
-              background: '#1A1814',
+              background: HOME_BROWN,
             }}
           />
           <div
@@ -294,7 +300,7 @@ export function FuiboFlower({
               width: 15,
               height: 2.5,
               borderRadius: 2,
-              background: '#1A1814',
+              background: HOME_BROWN,
             }}
           />
         </div>
@@ -309,12 +315,12 @@ export function FuiboFlower({
             width: 46,
             height: 46,
             borderRadius: '50%',
-            background: '#FBF3DC',
+            background: '#FFFFFF',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
             fontSize: 22,
-            boxShadow: '0 2px 8px rgba(26,24,20,.08)',
+            boxShadow: `0 2px 8px ${HOME_BROWN_SOFT}`,
             cursor: 'pointer',
           }}
           title="Mowing with Yoshi"
@@ -339,7 +345,7 @@ export function FuiboFlower({
             fontWeight: 500,
             lineHeight: 1.2,
             letterSpacing: '-.02em',
-            color: '#17151C',
+            color: HOME_BROWN,
             // Narrow enough that "Fuibo Flower" wraps; "Lady God" / "Dad" stay one line
             paddingRight: 90,
           }}
@@ -356,7 +362,7 @@ export function FuiboFlower({
             right: 0,
             bottom: 0,
             fontSize: 32,
-            color: '#17151C',
+            color: HOME_BROWN,
             cursor: 'pointer',
           }}
           title="Switch Yoshi"
@@ -374,7 +380,7 @@ export function FuiboFlower({
           bottom: 56,
           borderRadius: 26,
           overflow: 'hidden',
-          boxShadow: '0 18px 44px rgba(26,24,20,.18)',
+          boxShadow: `0 18px 44px ${HOME_BROWN_SOFT}`,
         }}
       >
         <img
@@ -402,8 +408,8 @@ export function FuiboFlower({
           padding: '12px 15px',
           fontSize: 14,
           lineHeight: 1.4,
-          color: '#2A2620',
-          boxShadow: '0 10px 26px rgba(26,24,20,.28)',
+          color: HOME_BROWN,
+          boxShadow: `0 10px 26px ${HOME_BROWN_MID}`,
         }}
       >
         Wanna see the baby version of your rabbit?
@@ -422,11 +428,11 @@ export function FuiboFlower({
           width: 58,
           height: 58,
           borderRadius: '50%',
-          background: '#C05A3C',
+          background: HOME_BROWN,
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
-          boxShadow: '0 12px 28px rgba(192,90,60,.45)',
+          boxShadow: `0 12px 28px ${HOME_BROWN_MID}`,
           cursor: 'pointer',
         }}
       >
@@ -451,7 +457,7 @@ export function FuiboFlower({
             height: 52,
             borderRadius: '50%',
             background: '#FFFFFF',
-            boxShadow: '0 4px 14px rgba(26,24,20,.14)',
+            boxShadow: `0 4px 14px ${HOME_BROWN_SOFT}`,
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -473,7 +479,7 @@ export function FuiboFlower({
                 display: 'flex',
                 alignItems: 'center',
                 justifyContent: 'center',
-                border: '2px solid #E9E6F8',
+                border: `2px solid ${HOME_YELLOW}`,
                 boxSizing: 'content-box',
               }}
             >

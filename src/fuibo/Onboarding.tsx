@@ -261,7 +261,13 @@ function SplashStep({ onDone }: { onDone: () => void }) {
   )
 }
 
-function WelcomeStep({ onContinue }: { onContinue: () => void }) {
+function WelcomeStep({
+  onContinue,
+  onSkipToHome,
+}: {
+  onContinue: () => void
+  onSkipToHome: () => void
+}) {
   return (
     <ScreenShell style={{ background: '#000' }}>
       <img
@@ -300,7 +306,7 @@ function WelcomeStep({ onContinue }: { onContinue: () => void }) {
         <AuthButton
           label="Continue with Google"
           iconSrc="/assets/onboarding/google.png"
-          onClick={onContinue}
+          onClick={onSkipToHome}
         />
         <p
           style={{
@@ -942,52 +948,397 @@ function RelationshipStep({
   )
 }
 
-function MeetStep({
-  image,
-  onChosen,
-}: {
+const MEET_YOSHI_COUNT = 11
+const MEET_VARIATIONS = 4
+
+function meetImageSrc(yoshiIndex: number, variation: number) {
+  return `/assets/meet-yoshi/${yoshiIndex + 1}.${variation + 1}.png`
+}
+
+function angleFromCenter(x: number, y: number, cx: number, cy: number) {
+  const rad = Math.atan2(x - cx, cy - y)
+  let deg = (rad * 180) / Math.PI
+  if (deg < 0) deg += 360
+  return deg
+}
+
+export type MeetSelection = {
   image: string
-  onChosen: () => void
+  /** 0 = cool · 50 = neutral · 100 = warm */
+  warmth: number
+}
+
+/** Subtle temperature tone — no wild hue swings */
+function warmthFilter(warmth: number) {
+  const t = Math.max(0, Math.min(100, warmth)) / 100
+  const sepia = t * 0.28
+  const saturate = 0.92 + t * 0.2
+  const hue = (0.5 - t) * 12
+  const bright = 1 + (t - 0.5) * 0.05
+  return `sepia(${sepia}) saturate(${saturate}) hue-rotate(${hue}deg) brightness(${bright})`
+}
+
+function warmthOverlay(warmth: number) {
+  const t = Math.max(0, Math.min(100, warmth)) / 100
+  if (t >= 0.5) {
+    return `rgba(255, 150, 70, ${(t - 0.5) * 0.34})`
+  }
+  return `rgba(90, 150, 255, ${(0.5 - t) * 0.3})`
+}
+
+const MEET_YOSHI_PX = 64
+const MEET_LOOK_PX = 56
+const AXIS_LOCK_PX = 12
+/** Mid-range so scrubbing works both ways from the start */
+const START_YOSHI = Math.floor((MEET_YOSHI_COUNT - 1) / 2)
+const START_LOOK = Math.floor((MEET_VARIATIONS - 1) / 2)
+const WARMTH_KNOB = 72
+
+function WarmthSpinner({
+  warmth,
+  onWarmthChange,
+}: {
+  warmth: number
+  onWarmthChange: (w: number) => void
 }) {
-  const [progress, setProgress] = useState(0)
+  const knobRef = useRef<HTMLDivElement>(null)
+  const dragging = useRef(false)
+  const start = useRef({ angle: 0, warmth: 50 })
+
+  const needleAngle = (warmth / 100) * 270 - 135
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    const el = knobRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height / 2
+    dragging.current = true
+    start.current = {
+      angle: angleFromCenter(e.clientX, e.clientY, cx, cy),
+      warmth,
+    }
+    el.setPointerCapture(e.pointerId)
+  }
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return
+    e.stopPropagation()
+    const el = knobRef.current
+    if (!el) return
+    const rect = el.getBoundingClientRect()
+    const cx = rect.left + rect.width / 2
+    const cy = rect.top + rect.height / 2
+    const ang = angleFromCenter(e.clientX, e.clientY, cx, cy)
+    let delta = ang - start.current.angle
+    if (delta > 180) delta -= 360
+    if (delta < -180) delta += 360
+    onWarmthChange(
+      Math.max(0, Math.min(100, start.current.warmth + delta * (100 / 270))),
+    )
+  }
+
+  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    dragging.current = false
+    try {
+      knobRef.current?.releasePointerCapture(e.pointerId)
+    } catch {
+      /* already released */
+    }
+  }
+
+  const ticks = Array.from({ length: 24 }, (_, i) => i)
+
+  return (
+    <div
+      ref={knobRef}
+      onPointerDown={onPointerDown}
+      onPointerMove={onPointerMove}
+      onPointerUp={onPointerUp}
+      onPointerCancel={onPointerUp}
+      title="Drag to adjust warmth"
+      style={{
+        position: 'absolute',
+        right: 12,
+        bottom: 12,
+        width: WARMTH_KNOB,
+        height: WARMTH_KNOB,
+        borderRadius: '50%',
+        background: 'rgba(255,255,255,0.92)',
+        boxShadow: '0 6px 18px rgba(0,0,0,0.22)',
+        zIndex: 5,
+        touchAction: 'none',
+        cursor: 'grab',
+        userSelect: 'none',
+      }}
+    >
+      <svg
+        viewBox="0 0 100 100"
+        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
+      >
+        {ticks.map((i) => {
+          const a = (i / 24) * Math.PI * 2 - Math.PI / 2
+          const outer = 46
+          const inner = i % 3 === 0 ? 38 : 41
+          return (
+            <line
+              key={i}
+              x1={50 + Math.cos(a) * inner}
+              y1={50 + Math.sin(a) * inner}
+              x2={50 + Math.cos(a) * outer}
+              y2={50 + Math.sin(a) * outer}
+              stroke={INK}
+              strokeWidth={i % 3 === 0 ? 1.6 : 1}
+              strokeLinecap="round"
+              opacity={0.35}
+            />
+          )
+        })}
+      </svg>
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          width: 0,
+          height: 0,
+          transform: `rotate(${needleAngle}deg)`,
+          pointerEvents: 'none',
+        }}
+      >
+        <div
+          style={{
+            position: 'absolute',
+            left: -1.5,
+            top: -28,
+            width: 3,
+            height: 22,
+            borderRadius: 2,
+            background: INK,
+          }}
+        />
+      </div>
+      <div
+        style={{
+          position: 'absolute',
+          inset: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 10,
+          fontWeight: 600,
+          color: INK,
+          pointerEvents: 'none',
+        }}
+      >
+        {Math.round(warmth) < 45 ? 'Cool' : Math.round(warmth) > 55 ? 'Warm' : '—'}
+      </div>
+    </div>
+  )
+}
+
+function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }) {
+  const [yoshiIndex, setYoshiIndex] = useState(START_YOSHI)
+  const [variation, setVariation] = useState(START_LOOK)
+  const [warmth, setWarmth] = useState(50)
+  const [slide, setSlide] = useState({ x: 0, y: 0 })
+  const [holdProgress, setHoldProgress] = useState(0)
+  const [panning, setPanning] = useState(false)
+  const [guide, setGuide] = useState<
+    { kind: 'horizontal'; t: number } | { kind: 'vertical'; t: number } | null
+  >(null)
+
+  const stageRef = useRef<HTMLDivElement>(null)
+  const mode = useRef<'none' | 'pan'>('none')
+  const panAxis = useRef<'none' | 'horizontal' | 'vertical'>('none')
+  const panOrigin = useRef({ x: 0, y: 0 })
+  const lastPtr = useRef({ x: 0, y: 0 })
+  const yoshiPos = useRef(START_YOSHI)
+  const varPos = useRef(START_LOOK)
+  /** Look index per Yoshi — vertical scrub must not leak across characters */
+  const looksByYoshi = useRef(
+    Array.from({ length: MEET_YOSHI_COUNT }, () => START_LOOK),
+  )
   const holding = useRef(false)
-  const raf = useRef(0)
-  const start = useRef(0)
+  const holdRaf = useRef(0)
+  const holdStart = useRef(0)
+  const holdBtnRef = useRef<HTMLButtonElement>(null)
+  const selectionRef = useRef<MeetSelection>({
+    image: meetImageSrc(START_YOSHI, START_LOOK),
+    warmth: 50,
+  })
+  const onChosenRef = useRef(onChosen)
+  onChosenRef.current = onChosen
+
+  const image = meetImageSrc(yoshiIndex, variation)
+  selectionRef.current = { image, warmth }
+
+  const clampYoshi = (v: number) =>
+    Math.max(0, Math.min(MEET_YOSHI_COUNT - 1, v))
+  const clampLook = (v: number) =>
+    Math.max(0, Math.min(MEET_VARIATIONS - 1, v))
+
+  const syncFromPos = (axis: 'horizontal' | 'vertical' | 'both') => {
+    yoshiPos.current = clampYoshi(yoshiPos.current)
+    const y = yoshiPos.current
+    const yNear = Math.round(y)
+
+    if (axis === 'vertical') {
+      varPos.current = clampLook(varPos.current)
+      looksByYoshi.current[yNear] = varPos.current
+    } else if (axis === 'horizontal') {
+      varPos.current = clampLook(looksByYoshi.current[yNear] ?? START_LOOK)
+    } else {
+      varPos.current = clampLook(
+        Math.round(looksByYoshi.current[yNear] ?? START_LOOK),
+      )
+      looksByYoshi.current[yNear] = varPos.current
+    }
+
+    const v = varPos.current
+    const vNear = Math.round(v)
+    setYoshiIndex(yNear)
+    setVariation(vNear)
+    setSlide({
+      x: axis === 'vertical' ? 0 : -(y - yNear) * 40,
+      y: axis === 'horizontal' ? 0 : -(v - vNear) * 32,
+    })
+  }
 
   const stopHold = () => {
     holding.current = false
-    cancelAnimationFrame(raf.current)
-    setProgress(0)
+    cancelAnimationFrame(holdRaf.current)
+    holdRaf.current = 0
+    holdStart.current = 0
+    setHoldProgress(0)
   }
 
-  const tick = (t: number) => {
+  const tickHold = (t: number) => {
     if (!holding.current) return
-    if (!start.current) start.current = t
-    const p = Math.min(1, (t - start.current) / 900)
-    setProgress(p)
+    if (holdStart.current === 0) holdStart.current = t
+    const p = Math.min(1, (t - holdStart.current) / 900)
+    setHoldProgress(p)
     if (p >= 1) {
       holding.current = false
-      onChosen()
+      cancelAnimationFrame(holdRaf.current)
+      holdRaf.current = 0
+      onChosenRef.current(selectionRef.current)
       return
     }
-    raf.current = requestAnimationFrame(tick)
+    holdRaf.current = requestAnimationFrame(tickHold)
   }
 
-  const startHold = () => {
+  const startHold = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    holdBtnRef.current?.setPointerCapture(e.pointerId)
     holding.current = true
-    start.current = 0
-    raf.current = requestAnimationFrame(tick)
+    holdStart.current = 0
+    setHoldProgress(0)
+    cancelAnimationFrame(holdRaf.current)
+    holdRaf.current = requestAnimationFrame(tickHold)
   }
 
-  useEffect(() => () => cancelAnimationFrame(raf.current), [])
+  const endHold = (e: ReactPointerEvent<HTMLButtonElement>) => {
+    e.preventDefault()
+    e.stopPropagation()
+    if (holdBtnRef.current?.hasPointerCapture(e.pointerId)) {
+      try {
+        holdBtnRef.current.releasePointerCapture(e.pointerId)
+      } catch {
+        /* already released */
+      }
+    }
+    // Completed hold already navigates via onChosen; only cancel in-progress holds
+    if (holding.current) stopHold()
+  }
 
-  const warmth = 72 + Math.round(progress * 18)
+  useEffect(() => () => cancelAnimationFrame(holdRaf.current), [])
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const el = stageRef.current
+    if (!el) return
+    el.setPointerCapture(e.pointerId)
+    lastPtr.current = { x: e.clientX, y: e.clientY }
+    panOrigin.current = { x: e.clientX, y: e.clientY }
+    panAxis.current = 'none'
+    mode.current = 'pan'
+    const yNear = Math.round(clampYoshi(yoshiPos.current))
+    yoshiPos.current = yNear
+    varPos.current = clampLook(looksByYoshi.current[yNear] ?? START_LOOK)
+    setPanning(true)
+    setGuide(null)
+  }
+
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (mode.current !== 'pan') return
+
+    const totalDx = e.clientX - panOrigin.current.x
+    const totalDy = e.clientY - panOrigin.current.y
+
+    if (panAxis.current === 'none') {
+      if (Math.hypot(totalDx, totalDy) < AXIS_LOCK_PX) return
+      panAxis.current =
+        Math.abs(totalDx) >= Math.abs(totalDy) ? 'horizontal' : 'vertical'
+    }
+
+    const dx = e.clientX - lastPtr.current.x
+    const dy = e.clientY - lastPtr.current.y
+    lastPtr.current = { x: e.clientX, y: e.clientY }
+
+    if (panAxis.current === 'horizontal') {
+      yoshiPos.current -= dx / MEET_YOSHI_PX
+      syncFromPos('horizontal')
+      const span = Math.max(1, MEET_YOSHI_COUNT - 1)
+      setGuide({ kind: 'horizontal', t: yoshiPos.current / span })
+    } else {
+      varPos.current -= dy / MEET_LOOK_PX
+      syncFromPos('vertical')
+      const span = Math.max(1, MEET_VARIATIONS - 1)
+      setGuide({ kind: 'vertical', t: varPos.current / span })
+    }
+  }
+
+  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const el = stageRef.current
+    if (el) {
+      try {
+        el.releasePointerCapture(e.pointerId)
+      } catch {
+        /* already released */
+      }
+    }
+
+    if (mode.current === 'pan') {
+      const yNear = Math.round(clampYoshi(yoshiPos.current))
+      yoshiPos.current = yNear
+      if (panAxis.current === 'vertical') {
+        const snapped = Math.round(clampLook(varPos.current))
+        looksByYoshi.current[yNear] = snapped
+        varPos.current = snapped
+      } else {
+        varPos.current = Math.round(
+          clampLook(looksByYoshi.current[yNear] ?? START_LOOK),
+        )
+        looksByYoshi.current[yNear] = varPos.current
+      }
+      syncFromPos('both')
+      setSlide({ x: 0, y: 0 })
+    }
+
+    mode.current = 'none'
+    panAxis.current = 'none'
+    setPanning(false)
+    setGuide(null)
+  }
 
   return (
     <ScreenShell>
       <div
         style={{
-          padding: '88px 28px 0',
+          padding: '72px 20px 0',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -1009,123 +1360,140 @@ function MeetStep({
         </h1>
         <p
           style={{
-            margin: '10px 0 22px',
+            margin: '8px 0 16px',
             fontSize: 15,
             color: MUTED,
             textAlign: 'center',
+            maxWidth: 280,
+            lineHeight: 1.4,
           }}
         >
-          Each Yoshi is unique. Swipe to wake them
+          Sideways for Yoshi · up/down for looks · spin the dial for warmth
         </p>
 
         <div
+          ref={stageRef}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
           style={{
             position: 'relative',
-            width: '100%',
-            maxWidth: 320,
-            aspectRatio: '1',
-            borderRadius: 28,
-            overflow: 'hidden',
-            boxShadow: '0 16px 40px rgba(26,39,86,0.14)',
+            width: 'min(100%, 360px)',
+            flex: '1 1 auto',
+            maxHeight: 460,
+            minHeight: 360,
+            touchAction: 'none',
+            cursor: 'grab',
+            userSelect: 'none',
           }}
         >
-          <img
-            src={image}
-            alt="Your Yoshi"
-            style={{
-              width: '100%',
-              height: '100%',
-              objectFit: 'cover',
-              display: 'block',
-            }}
-          />
           <div
             style={{
               position: 'absolute',
-              left: 14,
-              top: 24,
-              bottom: 24,
-              width: 3,
-              borderRadius: 2,
-              background: 'rgba(255,255,255,0.35)',
+              inset: 0,
+              borderRadius: 28,
+              overflow: 'hidden',
+              background: '#ddd',
+              boxShadow: '0 12px 32px rgba(26,39,86,0.14)',
             }}
           >
+            <img
+              src={image}
+              alt={`Yoshi ${yoshiIndex + 1} look ${variation + 1}`}
+              draggable={false}
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: '50% 18%',
+                display: 'block',
+                filter: warmthFilter(warmth),
+                transform: `translate(${slide.x}px, ${slide.y}px) scale(1.04)`,
+                transition: panning ? 'none' : 'transform .28s ease',
+              }}
+            />
             <div
               style={{
                 position: 'absolute',
-                left: '50%',
-                top: `${12 + progress * 50}%`,
-                transform: 'translate(-50%, -50%)',
-                width: 12,
-                height: 12,
-                borderRadius: '50%',
-                background: '#E85A4A',
-                boxShadow: '0 0 0 3px rgba(232,90,74,0.35)',
+                inset: 0,
+                background: warmthOverlay(warmth),
+                pointerEvents: 'none',
               }}
             />
           </div>
-          <div
-            style={{
-              position: 'absolute',
-              right: 14,
-              bottom: 14,
-              width: 78,
-              height: 78,
-              borderRadius: '50%',
-              background: 'rgba(20,20,28,0.72)',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              color: '#fff',
-              boxShadow: `inset 0 0 0 3px rgba(232,90,74,${0.35 + progress * 0.5})`,
-            }}
-          >
-            <div style={{ fontSize: 22, fontWeight: 600, lineHeight: 1 }}>
-              {warmth}
-            </div>
-            <div style={{ fontSize: 11, opacity: 0.7, marginTop: 2 }}>Warmth</div>
-          </div>
+
+          {/* Short guides (~5% of card) while dragging */}
+          {guide?.kind === 'horizontal' && (
+            <div
+              style={{
+                position: 'absolute',
+                top: '47.5%',
+                height: '5%',
+                left: `calc(${guide.t * 100}% - 1px)`,
+                width: 2,
+                borderRadius: 2,
+                background: 'rgba(255,255,255,0.95)',
+                boxShadow: '0 0 0 1px rgba(0,0,0,0.28)',
+                pointerEvents: 'none',
+                zIndex: 3,
+              }}
+            />
+          )}
+          {guide?.kind === 'vertical' && (
+            <div
+              style={{
+                position: 'absolute',
+                left: '47.5%',
+                width: '5%',
+                top: `calc(${guide.t * 100}% - 1px)`,
+                height: 2,
+                borderRadius: 2,
+                background: 'rgba(255,255,255,0.95)',
+                boxShadow: '0 0 0 1px rgba(0,0,0,0.28)',
+                pointerEvents: 'none',
+                zIndex: 3,
+              }}
+            />
+          )}
+
+          <WarmthSpinner warmth={warmth} onWarmthChange={setWarmth} />
         </div>
 
-        <div
+        <button
+          type="button"
+          onClick={() => onChosen({ image, warmth })}
           style={{
-            width: '70%',
-            height: 6,
-            borderRadius: 999,
-            background: 'rgba(26,39,86,0.1)',
-            marginTop: 18,
-            overflow: 'hidden',
+            marginTop: 12,
+            border: 'none',
+            background: 'transparent',
+            color: MUTED,
+            fontSize: 15,
+            cursor: 'pointer',
+            fontFamily: 'inherit',
+            flex: 'none',
           }}
         >
-          <div
-            style={{
-              width: `${8 + progress * 92}%`,
-              height: '100%',
-              borderRadius: 999,
-              background: '#E85A4A',
-              transition: holding.current ? 'none' : 'width .2s ease',
-            }}
-          />
-        </div>
+          Add your photo instead
+        </button>
 
         <div
           style={{
             marginTop: 'auto',
-            marginBottom: 48,
-            display: 'flex',
-            flexDirection: 'column',
-            alignItems: 'center',
-            gap: 14,
+            marginBottom: 40,
             width: '100%',
+            display: 'flex',
+            justifyContent: 'center',
+            flex: 'none',
           }}
         >
           <button
+            ref={holdBtnRef}
             type="button"
             onPointerDown={startHold}
-            onPointerUp={stopHold}
-            onPointerLeave={stopHold}
-            onPointerCancel={stopHold}
+            onPointerUp={endHold}
+            onPointerCancel={endHold}
+            onContextMenu={(e) => e.preventDefault()}
             style={{
               width: '100%',
               maxWidth: 300,
@@ -1136,35 +1504,29 @@ function MeetStep({
               boxShadow: '0 10px 28px rgba(26,39,86,0.12)',
               fontSize: 17,
               fontWeight: 600,
-              color: INK,
+              color: holdProgress > 0.45 ? '#fff' : INK,
               cursor: 'pointer',
               fontFamily: 'inherit',
               position: 'relative',
               overflow: 'hidden',
+              touchAction: 'none',
+              userSelect: 'none',
+              WebkitUserSelect: 'none',
             }}
           >
             <span
+              aria-hidden
               style={{
                 position: 'absolute',
-                inset: 0,
-                background: `rgba(232,90,74,${progress * 0.18})`,
+                left: 0,
+                top: 0,
+                bottom: 0,
+                width: `${Math.round(holdProgress * 1000) / 10}%`,
+                background: INK,
+                borderRadius: 999,
               }}
             />
-            <span style={{ position: 'relative' }}>Hold to choose</span>
-          </button>
-          <button
-            type="button"
-            onClick={onChosen}
-            style={{
-              border: 'none',
-              background: 'transparent',
-              color: MUTED,
-              fontSize: 15,
-              cursor: 'pointer',
-              fontFamily: 'inherit',
-            }}
-          >
-            Add your photo instead
+            <span style={{ position: 'relative', zIndex: 1 }}>Hold to choose</span>
           </button>
         </div>
       </div>
@@ -1174,11 +1536,13 @@ function MeetStep({
 
 function NameYoshiStep({
   image,
+  warmth,
   value,
   onChange,
   onNext,
 }: {
   image: string
+  warmth: number
   value: string
   onChange: (v: string) => void
   onNext: () => void
@@ -1198,6 +1562,7 @@ function NameYoshiStep({
             borderRadius: '0 0 28px 28px',
             overflow: 'hidden',
             flex: 'none',
+            position: 'relative',
           }}
         >
           <img
@@ -1209,6 +1574,15 @@ function NameYoshiStep({
               objectFit: 'cover',
               objectPosition: '50% 20%',
               display: 'block',
+              filter: warmthFilter(warmth),
+            }}
+          />
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              background: warmthOverlay(warmth),
+              pointerEvents: 'none',
             }}
           />
         </div>
@@ -1264,21 +1638,29 @@ export function Onboarding({ onComplete }: Props) {
   const [interests, setInterests] = useState<string[]>([])
   const [relIndex, setRelIndex] = useState(0)
   const [yoshiName, setYoshiName] = useState('')
+  const [meetSelection, setMeetSelection] = useState<MeetSelection>({
+    image: meetImageSrc(START_YOSHI, START_LOOK),
+    warmth: 50,
+  })
 
   const relationship = RELATIONSHIP_TYPES[relIndex]
   const showKeyboard = step === 'name' || step === 'nameYoshi'
 
-  const finish = () => {
-    if (!yoshiName.trim()) return
+  const landOnHome = (name = userName.trim()) => {
     // Prototype: always land on Fuibo Flower regardless of onboarding choices
     const fuibo = getYoshi(DEFAULT_YOSHI_ID)
     onComplete({
-      userName: userName.trim(),
+      userName: name,
       yoshiId: fuibo.id,
       yoshiName: fuibo.name,
       yoshiImage: fuibo.image,
       relationshipId: relationship.id,
     })
+  }
+
+  const finish = () => {
+    if (!yoshiName.trim()) return
+    landOnHome()
   }
 
   const toggleInterest = (id: string) => {
@@ -1291,7 +1673,12 @@ export function Onboarding({ onComplete }: Props) {
   if (step === 'splash') {
     body = <SplashStep onDone={() => setStep('welcome')} />
   } else if (step === 'welcome') {
-    body = <WelcomeStep onContinue={() => setStep('name')} />
+    body = (
+      <WelcomeStep
+        onContinue={() => setStep('name')}
+        onSkipToHome={() => landOnHome()}
+      />
+    )
   } else if (step === 'name') {
     body = (
       <NameStep
@@ -1335,14 +1722,17 @@ export function Onboarding({ onComplete }: Props) {
   } else if (step === 'meet') {
     body = (
       <MeetStep
-        image={relationship.image}
-        onChosen={() => setStep('nameYoshi')}
+        onChosen={(selection) => {
+          setMeetSelection(selection)
+          setStep('nameYoshi')
+        }}
       />
     )
   } else {
     body = (
       <NameYoshiStep
-        image={relationship.image}
+        image={meetSelection.image}
+        warmth={meetSelection.warmth}
         value={yoshiName}
         onChange={setYoshiName}
         onNext={finish}

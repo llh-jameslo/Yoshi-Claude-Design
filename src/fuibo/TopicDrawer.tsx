@@ -105,6 +105,8 @@ export function TopicDrawer({
           padding: '6px calc(50% - 158px) 14px',
           cursor: 'grab',
           userSelect: 'none',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
         }}
       >
         {CARDS.map((card, i) => (
