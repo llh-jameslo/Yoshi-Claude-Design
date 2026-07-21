@@ -302,6 +302,20 @@ function WelcomeStep({
           zIndex: 2,
         }}
       >
+        <h1
+          style={{
+            margin: '0 0 16px',
+            fontSize: 36,
+            fontWeight: 600,
+            letterSpacing: '-0.03em',
+            lineHeight: 1.35,
+            color: '#fff',
+            textAlign: 'left',
+            textShadow: '0 2px 24px rgba(0,0,0,0.35)',
+          }}
+        >
+          Someone&apos;s waiting to meet you
+        </h1>
         <AuthButton label="Continue with Apple" apple onClick={onContinue} />
         <AuthButton
           label="Continue with Google"
