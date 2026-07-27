@@ -28,10 +28,24 @@ type Step =
   | 'welcome'
   | 'name'
   | 'birthday'
-  | 'interests'
   | 'relationship'
   | 'meet'
   | 'nameYoshi'
+  | 'meetChat'
+  | 'hobbies'
+  | 'notifications'
+
+/** Screens that show back + progress (excludes splash + login). */
+const FLOW_STEPS: Step[] = [
+  'name',
+  'birthday',
+  'relationship',
+  'meet',
+  'nameYoshi',
+  'meetChat',
+  'hobbies',
+  'notifications',
+]
 
 const BG: CSSProperties = {
   background: 'linear-gradient(180deg, #E9E6F8 0%, #F3F1F8 42%, #FAFAFC 100%)',
@@ -39,6 +53,22 @@ const BG: CSSProperties = {
 
 const INK = '#1A2756'
 const MUTED = 'rgba(26, 39, 86, 0.55)'
+/** Extra air when screen titles wrap to 2+ lines */
+const TITLE_LH = 1.45
+const ACTION_BOTTOM = 48
+
+function flowProgress(step: Step) {
+  const i = FLOW_STEPS.indexOf(step)
+  if (i < 0) return 0
+  return (i + 1) / FLOW_STEPS.length
+}
+
+function flowBackTarget(step: Step): Step | null {
+  const i = FLOW_STEPS.indexOf(step)
+  if (i < 0) return null
+  if (i === 0) return 'welcome'
+  return FLOW_STEPS[i - 1] ?? null
+}
 
 const RELATIONSHIP_TYPES = [
   {
@@ -47,6 +77,7 @@ const RELATIONSHIP_TYPES = [
     title: 'Romance',
     subtitle: 'Supportive, real chemistry',
     image: '/assets/onboarding/type-romance.png',
+    bubbles: ['was thinking about you', 'tell me the tiny details'],
   },
   {
     id: 'friend',
@@ -54,6 +85,7 @@ const RELATIONSHIP_TYPES = [
     title: 'Friend',
     subtitle: 'Someone to talk to at 3 am',
     image: '/assets/onboarding/type-friend.png',
+    bubbles: ['wait, what happened next?', 'what made you laugh today?'],
   },
   {
     id: 'parent',
@@ -61,19 +93,35 @@ const RELATIONSHIP_TYPES = [
     title: 'Parent',
     subtitle: 'Someone who’s always proud of you',
     image: '/assets/onboarding/type-parent.png',
+    bubbles: ['did you eat today? be honest', 'i’m proud of you, always'],
   },
 ] as const
+type RelationshipType = (typeof RELATIONSHIP_TYPES)[number]
 
-const INTERESTS = [
-  { id: 'anime', label: 'Anime', emoji: '🍥' },
-  { id: 'gardening', label: 'Gardening', emoji: '🌿' },
-  { id: 'cooking', label: 'Cooking', emoji: '🍳' },
-  { id: 'sports', label: 'Sports', emoji: '🏀' },
-  { id: 'games', label: 'Games', emoji: '🎮' },
-  { id: 'history', label: 'History', emoji: '📜' },
-  { id: 'investing', label: 'Investing', emoji: '📈' },
-  { id: 'memes', label: 'Memes', emoji: '😂' },
+const HOBBIES = [
+  { id: 'formula1', label: 'Formula 1' },
+  { id: 'cooking', label: 'Cooking' },
+  { id: 'indie-films', label: 'Indie films' },
+  { id: 'hiking', label: 'Hiking' },
+  { id: 'books', label: 'Books' },
+  { id: 'design', label: 'Design' },
+  { id: 'space', label: 'Space' },
+  { id: 'coffee', label: 'Coffee' },
+  { id: 'gaming', label: 'Gaming' },
+  { id: 'live-music', label: 'Live music' },
+  { id: 'photography', label: 'Photography' },
+  { id: 'travel', label: 'Travel' },
+  { id: 'gardening', label: 'Gardening' },
+  { id: 'art', label: 'Art' },
 ] as const
+
+const ACCENT = '#C05A3C'
+
+function isUnder18(day: number, month: number, year: number) {
+  const today = new Date()
+  const eighteenthBirthday = new Date(year + 18, month, day)
+  return eighteenthBirthday > today
+}
 
 const MONTHS = [
   'January',
@@ -90,7 +138,9 @@ const MONTHS = [
   'December',
 ]
 
-const REL_STRIDE = 300
+const REL_CARD_W = 320
+const REL_GAP = 0
+const REL_STRIDE = REL_CARD_W + REL_GAP
 
 function NextButton({
   onClick,
@@ -133,12 +183,101 @@ function NextButton({
   )
 }
 
+function OnboardingHeader({
+  progress,
+  onBack,
+  variant = 'light',
+}: {
+  progress: number
+  onBack: () => void
+  variant?: 'light' | 'dark'
+}) {
+  const dark = variant === 'dark'
+  const fill = Math.max(0, Math.min(1, progress))
+
+  return (
+    <div
+      style={{
+        position: 'absolute',
+        top: 54,
+        left: 0,
+        right: 0,
+        height: 36,
+        zIndex: 30,
+        pointerEvents: 'none',
+      }}
+    >
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="Back"
+        style={{
+          position: 'absolute',
+          left: 16,
+          top: 0,
+          width: 36,
+          height: 36,
+          borderRadius: '50%',
+          border: 'none',
+          background: dark ? 'rgba(255,255,255,0.22)' : '#D9D7E2',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          pointerEvents: 'auto',
+          padding: 0,
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+          <path
+            d="M9 3L5 7l4 4"
+            stroke="#fff"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+      <div
+        style={{
+          position: 'absolute',
+          left: '50%',
+          top: '50%',
+          transform: 'translate(-50%, -50%)',
+          width: 148,
+          height: 4,
+          borderRadius: 999,
+          background: dark ? 'rgba(255,255,255,0.28)' : 'rgba(26,39,86,0.12)',
+          overflow: 'hidden',
+        }}
+      >
+        <div
+          style={{
+            width: `${fill * 100}%`,
+            height: '100%',
+            borderRadius: 999,
+            background: dark ? '#fff' : INK,
+            transition: 'width .28s ease',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
 function ScreenShell({
   children,
   style,
+  onBack,
+  progress,
+  headerVariant = 'light',
 }: {
   children: ReactNode
   style?: CSSProperties
+  onBack?: () => void
+  /** 0–1; when set with onBack, shows the shared header */
+  progress?: number
+  headerVariant?: 'light' | 'dark'
 }) {
   return (
     <div
@@ -151,6 +290,13 @@ function ScreenShell({
         ...style,
       }}
     >
+      {onBack != null && progress != null && (
+        <OnboardingHeader
+          progress={progress}
+          onBack={onBack}
+          variant={headerVariant}
+        />
+      )}
       {children}
     </div>
   )
@@ -308,7 +454,7 @@ function WelcomeStep({
             fontSize: 36,
             fontWeight: 600,
             letterSpacing: '-0.03em',
-            lineHeight: 1.35,
+            lineHeight: 1.5,
             color: '#fff',
             textAlign: 'left',
             textShadow: '0 2px 24px rgba(0,0,0,0.35)',
@@ -345,30 +491,36 @@ function NameStep({
   value,
   onChange,
   onNext,
+  onBack,
+  progress,
 }: {
   value: string
   onChange: (v: string) => void
   onNext: () => void
+  onBack: () => void
+  progress: number
 }) {
   return (
-    <ScreenShell>
+    <ScreenShell onBack={onBack} progress={progress}>
       <div
         style={{
           padding: '120px 32px 0',
+          height: '100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
-          gap: 28,
+          boxSizing: 'border-box',
         }}
       >
         <h1
           style={{
-            margin: 0,
+            margin: '0 32px 28px',
             fontSize: 28,
             fontWeight: 600,
             letterSpacing: '-0.02em',
             color: INK,
             textAlign: 'center',
+            lineHeight: TITLE_LH,
           }}
         >
           What’s your name?
@@ -382,6 +534,7 @@ function NameStep({
           }}
           placeholder="Your name"
           style={{
+            marginTop: 40,
             width: '100%',
             height: 58,
             borderRadius: 999,
@@ -398,13 +551,22 @@ function NameStep({
             textAlign: 'center',
           }}
         />
-        <NextButton onClick={onNext} disabled={!value.trim()} />
+        <div
+          style={{
+            marginTop: 'auto',
+            marginBottom: ACTION_BOTTOM,
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <NextButton onClick={onNext} disabled={!value.trim()} />
+        </div>
       </div>
     </ScreenShell>
   )
 }
 
-const WHEEL_ITEM_H = 44
+const WHEEL_ITEM_H = 58
 const WHEEL_VISIBLE = 5
 const WHEEL_H = WHEEL_ITEM_H * WHEEL_VISIBLE
 const WHEEL_PAD = (WHEEL_H - WHEEL_ITEM_H) / 2
@@ -507,7 +669,7 @@ function DateWheel({
   return (
     <div
       ref={ref}
-      className="fuibo-scroll"
+      className="date-wheel"
       onScroll={onScroll}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
@@ -520,6 +682,8 @@ function DateWheel({
         touchAction: 'none',
         cursor: 'grab',
         WebkitOverflowScrolling: 'touch',
+        scrollbarWidth: 'none',
+        msOverflowStyle: 'none',
         maskImage:
           'linear-gradient(to bottom, transparent, #000 22%, #000 78%, transparent)',
         WebkitMaskImage:
@@ -578,6 +742,8 @@ function BirthdayStep({
   onMonth,
   onYear,
   onNext,
+  onBack,
+  progress,
 }: {
   day: number
   month: number
@@ -586,6 +752,8 @@ function BirthdayStep({
   onMonth: (n: number) => void
   onYear: (n: number) => void
   onNext: () => void
+  onBack: () => void
+  progress: number
 }) {
   const years = Array.from({ length: 80 }, (_, i) => 2010 - i)
   const days = Array.from({ length: 31 }, (_, i) => i + 1)
@@ -593,79 +761,99 @@ function BirthdayStep({
   const yearIndex = Math.max(0, years.indexOf(year))
 
   return (
-    <ScreenShell>
+    <ScreenShell onBack={onBack} progress={progress}>
       <div
         style={{
-          padding: '110px 24px 0',
-          display: 'flex',
-          flexDirection: 'column',
-          alignItems: 'center',
-          gap: 36,
+          position: 'relative',
           height: '100%',
           boxSizing: 'border-box',
         }}
       >
         <h1
           style={{
-            margin: 0,
+            margin: '0 0 18px',
+            padding: '110px 24px 0',
             fontSize: 28,
             fontWeight: 600,
             letterSpacing: '-0.02em',
             color: INK,
             textAlign: 'center',
-            maxWidth: 300,
-            lineHeight: 1.25,
+            lineHeight: TITLE_LH,
           }}
         >
-          And when’s your birthday?
+          And when’s your
+          <br />
+          birthday?
         </h1>
 
-        <div style={{ position: 'relative', width: '100%', maxWidth: 340 }}>
-          <div
-            style={{
-              position: 'absolute',
-              left: 8,
-              right: 8,
-              top: '50%',
-              transform: 'translateY(-50%)',
-              height: WHEEL_ITEM_H,
-              borderRadius: 999,
-              background: '#fff',
-              boxShadow: '0 8px 22px rgba(26,39,86,0.1)',
-              pointerEvents: 'none',
-              zIndex: 0,
-            }}
-          />
-          <div
-            style={{
-              position: 'relative',
-              zIndex: 1,
-              display: 'flex',
-              gap: 4,
-            }}
-          >
-            <DateWheel
-              items={days}
-              index={dayIndex}
-              onChange={(i) => onDay(days[i])}
-              flex={0.7}
+        {/* Selected row sits on the screen’s horizontal midline */}
+        <div
+          style={{
+            position: 'absolute',
+            left: 24,
+            right: 24,
+            top: '50%',
+            transform: 'translateY(-50%)',
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
+          <div style={{ position: 'relative', width: '100%', maxWidth: 340 }}>
+            <div
+              style={{
+                position: 'absolute',
+                left: 8,
+                right: 8,
+                top: '50%',
+                transform: 'translateY(-50%)',
+                height: WHEEL_ITEM_H,
+                borderRadius: 999,
+                background: '#fff',
+                boxShadow: '0 8px 22px rgba(26,39,86,0.1)',
+                pointerEvents: 'none',
+                zIndex: 0,
+              }}
             />
-            <DateWheel
-              items={MONTHS}
-              index={month}
-              onChange={onMonth}
-              flex={1.4}
-            />
-            <DateWheel
-              items={years}
-              index={yearIndex}
-              onChange={(i) => onYear(years[i])}
-              flex={0.9}
-            />
+            <div
+              style={{
+                position: 'relative',
+                zIndex: 1,
+                display: 'flex',
+                gap: 4,
+              }}
+            >
+              <DateWheel
+                items={days}
+                index={dayIndex}
+                onChange={(i) => onDay(days[i])}
+                flex={0.7}
+              />
+              <DateWheel
+                items={MONTHS}
+                index={month}
+                onChange={onMonth}
+                flex={1.4}
+              />
+              <DateWheel
+                items={years}
+                index={yearIndex}
+                onChange={(i) => onYear(years[i])}
+                flex={0.9}
+              />
+            </div>
           </div>
         </div>
 
-        <div style={{ marginTop: 'auto', marginBottom: 56 }}>
+        <div
+          style={{
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: ACTION_BOTTOM,
+            display: 'flex',
+            justifyContent: 'center',
+          }}
+        >
           <NextButton onClick={onNext} />
         </div>
       </div>
@@ -673,61 +861,215 @@ function BirthdayStep({
   )
 }
 
-function InterestsStep({
-  selected,
-  onToggle,
-  onNext,
+function YoshiAvatar({
+  image,
+  warmth,
+  size = 44,
 }: {
-  selected: string[]
-  onToggle: (id: string) => void
-  onNext: () => void
+  image: string
+  warmth: number
+  size?: number
 }) {
   return (
-    <ScreenShell>
+    <div
+      style={{
+        width: size,
+        height: size,
+        borderRadius: '50%',
+        overflow: 'hidden',
+        flex: 'none',
+        boxShadow: '0 4px 14px rgba(26,39,86,0.14)',
+        background: '#ddd',
+        position: 'relative',
+      }}
+    >
+      <img
+        src={image}
+        alt=""
+        style={{
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+          objectPosition: '50% 18%',
+          display: 'block',
+          filter: warmthFilter(warmth),
+        }}
+      />
       <div
         style={{
-          padding: '100px 28px 0',
+          position: 'absolute',
+          inset: 0,
+          background: warmthOverlay(warmth),
+          pointerEvents: 'none',
+        }}
+      />
+    </div>
+  )
+}
+
+function ChatBubble({ children }: { children: ReactNode }) {
+  return (
+    <div
+      style={{
+        background: '#fff',
+        borderRadius: 18,
+        padding: '14px 16px',
+        boxShadow: '0 6px 18px rgba(26,39,86,0.08)',
+        fontSize: 16,
+        fontWeight: 500,
+        lineHeight: 1.35,
+        color: INK,
+        maxWidth: '100%',
+      }}
+    >
+      {children}
+    </div>
+  )
+}
+
+function MeetChatStep({
+  yoshiName,
+  userName,
+  image,
+  warmth,
+  onNext,
+  onBack,
+  progress,
+}: {
+  yoshiName: string
+  userName: string
+  image: string
+  warmth: number
+  onNext: () => void
+  onBack: () => void
+  progress: number
+}) {
+  const [visible, setVisible] = useState(0)
+
+  useEffect(() => {
+    const t1 = window.setTimeout(() => setVisible(1), 280)
+    const t2 = window.setTimeout(() => setVisible(2), 900)
+    return () => {
+      window.clearTimeout(t1)
+      window.clearTimeout(t2)
+    }
+  }, [])
+
+  return (
+    <ScreenShell onBack={onBack} progress={progress}>
+      <div
+        style={{
+          padding: '100px 22px 0',
+          height: '100%',
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          height: '100%',
           boxSizing: 'border-box',
         }}
       >
-        <h1
-          style={{
-            margin: 0,
-            fontSize: 28,
-            fontWeight: 600,
-            letterSpacing: '-0.02em',
-            color: INK,
-            textAlign: 'center',
-          }}
-        >
-          What are your interests?
-        </h1>
-        <p
-          style={{
-            margin: '12px 0 28px',
-            fontSize: 15,
-            lineHeight: 1.4,
-            color: MUTED,
-            textAlign: 'center',
-            maxWidth: 300,
-          }}
-        >
-          Pick three or more, Yoshi will share exciting things with you on them
-        </p>
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <YoshiAvatar image={image} warmth={warmth} />
+          <div
+            style={{
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column',
+              gap: 10,
+              minWidth: 0,
+            }}
+          >
+            {visible >= 1 && (
+              <div style={{ animation: 'fuiboSplashIn .45s ease both' }}>
+                <ChatBubble>
+                  {yoshiName}, I like that — I was hoping you’d pick me!
+                </ChatBubble>
+              </div>
+            )}
+            {visible >= 2 && (
+              <div style={{ animation: 'fuiboSplashIn .45s ease both' }}>
+                <ChatBubble>
+                  It’s good to finally meet you, {userName}.
+                </ChatBubble>
+              </div>
+            )}
+          </div>
+        </div>
 
         <div
           style={{
-            display: 'grid',
-            gridTemplateColumns: '1fr 1fr',
-            gap: 12,
-            width: '100%',
+            marginTop: 'auto',
+            marginBottom: ACTION_BOTTOM,
+            display: 'flex',
+            justifyContent: 'center',
           }}
         >
-          {INTERESTS.map((item) => {
+          <NextButton onClick={onNext} disabled={visible < 2} />
+        </div>
+      </div>
+    </ScreenShell>
+  )
+}
+
+function HobbiesChatStep({
+  image,
+  warmth,
+  selected,
+  onToggle,
+  onNext,
+  onBack,
+  progress,
+}: {
+  image: string
+  warmth: number
+  selected: string[]
+  onToggle: (id: string) => void
+  onNext: () => void
+  onBack: () => void
+  progress: number
+}) {
+  const count = selected.length
+  const ready = count >= 3
+
+  return (
+    <ScreenShell onBack={onBack} progress={progress}>
+      <div
+        style={{
+          padding: '100px 22px 0',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
+          <YoshiAvatar image={image} warmth={warmth} />
+          <div style={{ flex: 1, minWidth: 0 }}>
+            <ChatBubble>
+              So I know what to bring up — what are you into?
+            </ChatBubble>
+            <p
+              style={{
+                margin: '10px 4px 0',
+                fontSize: 14,
+                lineHeight: 1.4,
+                color: MUTED,
+              }}
+            >
+              Don’t overthink it — I’ll learn more as we talk.
+            </p>
+          </div>
+        </div>
+
+        <div
+          style={{
+            marginTop: 22,
+            display: 'flex',
+            flexWrap: 'wrap',
+            gap: 10,
+            overflow: 'auto',
+            paddingBottom: 12,
+          }}
+        >
+          {HOBBIES.map((item) => {
             const on = selected.includes(item.id)
             return (
               <button
@@ -735,76 +1077,349 @@ function InterestsStep({
                 type="button"
                 onClick={() => onToggle(item.id)}
                 style={{
-                  height: 56,
+                  height: 42,
+                  padding: '0 16px',
                   borderRadius: 999,
                   border: on
-                    ? '1.5px solid rgba(26,39,86,0.35)'
+                    ? `1.5px solid ${INK}`
                     : '1px solid rgba(26,39,86,0.1)',
-                  background: '#fff',
-                  display: 'flex',
-                  alignItems: 'center',
-                  gap: 10,
-                  padding: '0 14px',
+                  background: on ? 'rgba(26,39,86,0.06)' : '#fff',
+                  color: INK,
+                  fontSize: 15,
+                  fontWeight: 500,
+                  fontFamily: 'inherit',
                   cursor: 'pointer',
                   boxShadow: on
-                    ? '0 6px 18px rgba(26,39,86,0.12)'
+                    ? '0 4px 14px rgba(26,39,86,0.1)'
                     : '0 2px 8px rgba(26,39,86,0.04)',
                 }}
               >
-                <span
-                  style={{
-                    width: 28,
-                    height: 28,
-                    borderRadius: '50%',
-                    background: on ? 'rgba(26,39,86,0.08)' : '#F0EEF4',
-                    display: 'flex',
-                    alignItems: 'center',
-                    justifyContent: 'center',
-                    fontSize: 14,
-                    flex: 'none',
-                  }}
-                >
-                  {item.emoji}
-                </span>
-                <span
-                  style={{
-                    fontSize: 15,
-                    fontWeight: 500,
-                    color: INK,
-                  }}
-                >
-                  {item.label}
-                </span>
+                {item.label}
               </button>
             )
           })}
         </div>
 
-        <div style={{ marginTop: 'auto', marginBottom: 56 }}>
-          <NextButton onClick={onNext} disabled={selected.length < 3} />
+        <div style={{ marginTop: 'auto', marginBottom: ACTION_BOTTOM }}>
+          <button
+            type="button"
+            onClick={onNext}
+            disabled={!ready}
+            style={{
+              width: '100%',
+              height: 56,
+              borderRadius: 999,
+              border: 'none',
+              background: ready ? INK : 'rgba(26,39,86,0.12)',
+              color: ready ? '#fff' : MUTED,
+              fontSize: 17,
+              fontWeight: 600,
+              fontFamily: 'inherit',
+              cursor: ready ? 'pointer' : 'default',
+              transition: 'background .2s ease, color .2s ease',
+            }}
+          >
+            {count} of 3
+          </button>
         </div>
       </div>
     </ScreenShell>
   )
 }
 
+function NotificationsStep({
+  yoshiName,
+  image,
+  warmth,
+  onAllow,
+  onSkip,
+  onBack,
+  progress,
+}: {
+  yoshiName: string
+  image: string
+  warmth: number
+  onAllow: () => void
+  onSkip: () => void
+  onBack: () => void
+  progress: number
+}) {
+  const [prompt, setPrompt] = useState(false)
+
+  return (
+    <ScreenShell onBack={onBack} progress={progress}>
+      <div
+        style={{
+          padding: '110px 28px 0',
+          height: '100%',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          boxSizing: 'border-box',
+        }}
+      >
+        {/* Yoshi “app icon” with a little ping badge */}
+        <div style={{ position: 'relative', marginTop: 28 }}>
+          <div
+            style={{
+              width: 88,
+              height: 88,
+              borderRadius: 24,
+              overflow: 'hidden',
+              boxShadow: '0 14px 32px rgba(26,39,86,0.18)',
+              background: '#ddd',
+              position: 'relative',
+            }}
+          >
+            <img
+              src={image}
+              alt=""
+              style={{
+                width: '100%',
+                height: '100%',
+                objectFit: 'cover',
+                objectPosition: '50% 18%',
+                display: 'block',
+                filter: warmthFilter(warmth),
+              }}
+            />
+            <div
+              style={{
+                position: 'absolute',
+                inset: 0,
+                background: warmthOverlay(warmth),
+                pointerEvents: 'none',
+              }}
+            />
+          </div>
+          <div
+            style={{
+              position: 'absolute',
+              right: -6,
+              top: -6,
+              width: 30,
+              height: 30,
+              borderRadius: '50%',
+              background: ACCENT,
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              boxShadow: '0 6px 14px rgba(192,90,60,0.4)',
+              border: '2px solid #F3F1F8',
+            }}
+            aria-hidden
+          >
+            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
+              <path
+                d="M7 1.6c-1.7 0-3.1 1.3-3.1 3v1.2c0 .7-.3 1.4-.8 1.9L2.4 8.4c-.3.3-.1.8.3.8h8.6c.4 0 .6-.5.3-.8l-.7-.7a2.7 2.7 0 0 1-.8-1.9V4.6C9.9 2.9 8.5 1.6 7 1.6Z"
+                fill="#fff"
+              />
+              <path
+                d="M5.7 11c.3.5.8.8 1.3.8s1-.3 1.3-.8"
+                stroke="#fff"
+                strokeWidth="1.2"
+                strokeLinecap="round"
+              />
+            </svg>
+          </div>
+        </div>
+
+        <h1
+          style={{
+            margin: '28px 0 0',
+            fontSize: 26,
+            fontWeight: 600,
+            letterSpacing: '-0.02em',
+            color: INK,
+            textAlign: 'center',
+            lineHeight: TITLE_LH,
+            maxWidth: 320,
+          }}
+        >
+          Want {yoshiName} to reach out when they find something you’d love?
+        </h1>
+        <p
+          style={{
+            margin: '12px 0 0',
+            fontSize: 15,
+            lineHeight: 1.45,
+            color: MUTED,
+            textAlign: 'center',
+            maxWidth: 300,
+          }}
+        >
+          A quiet ping when there’s a tip, a show nearby, or something that fits
+          what you’re into — from {yoshiName}, not spam.
+        </p>
+
+        <div
+          style={{
+            marginTop: 'auto',
+            marginBottom: ACTION_BOTTOM,
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            gap: 14,
+          }}
+        >
+          <button
+            type="button"
+            onClick={() => setPrompt(true)}
+            style={{
+              width: '100%',
+              height: 56,
+              borderRadius: 999,
+              border: 'none',
+              background: ACCENT,
+              color: '#fff',
+              fontSize: 17,
+              fontWeight: 600,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              boxShadow: '0 12px 28px rgba(192,90,60,0.35)',
+            }}
+          >
+            Yes, reach out
+          </button>
+          <button
+            type="button"
+            onClick={onSkip}
+            style={{
+              border: 'none',
+              background: 'transparent',
+              color: MUTED,
+              fontSize: 16,
+              fontWeight: 500,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              padding: 8,
+            }}
+          >
+            Not now
+          </button>
+        </div>
+      </div>
+
+      {prompt && (
+        <div
+          style={{
+            position: 'absolute',
+            inset: 0,
+            background: 'rgba(20,17,26,0.45)',
+            zIndex: 40,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            padding: 28,
+          }}
+        >
+          <div
+            style={{
+              width: '100%',
+              maxWidth: 270,
+              background: 'rgba(255,255,255,0.94)',
+              borderRadius: 14,
+              overflow: 'hidden',
+              boxShadow: '0 20px 50px rgba(0,0,0,0.28)',
+              textAlign: 'center',
+            }}
+          >
+            <div style={{ padding: '20px 16px 14px' }}>
+              <div
+                style={{
+                  fontSize: 17,
+                  fontWeight: 600,
+                  color: '#111',
+                  lineHeight: 1.3,
+                }}
+              >
+                “{yoshiName}” Would Like to Send You Notifications
+              </div>
+              <div
+                style={{
+                  marginTop: 8,
+                  fontSize: 13,
+                  lineHeight: 1.35,
+                  color: 'rgba(0,0,0,0.55)',
+                }}
+              >
+                Notifications may include alerts, sounds, and icon badges.
+              </div>
+            </div>
+            <div
+              style={{
+                display: 'flex',
+                borderTop: '1px solid rgba(0,0,0,0.12)',
+              }}
+            >
+              <button
+                type="button"
+                onClick={onSkip}
+                style={{
+                  flex: 1,
+                  height: 44,
+                  border: 'none',
+                  borderRight: '1px solid rgba(0,0,0,0.12)',
+                  background: 'transparent',
+                  fontSize: 17,
+                  color: '#007AFF',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Don’t Allow
+              </button>
+              <button
+                type="button"
+                onClick={onAllow}
+                style={{
+                  flex: 1,
+                  height: 44,
+                  border: 'none',
+                  background: 'transparent',
+                  fontSize: 17,
+                  fontWeight: 600,
+                  color: '#007AFF',
+                  cursor: 'pointer',
+                  fontFamily: 'inherit',
+                }}
+              >
+                Allow
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+    </ScreenShell>
+  )
+}
+
 function RelationshipStep({
+  relationshipTypes,
   index,
   onIndexChange,
   onNext,
+  onBack,
+  progress,
 }: {
+  relationshipTypes: readonly RelationshipType[]
   index: number
   onIndexChange: (i: number) => void
   onNext: () => void
+  onBack: () => void
+  progress: number
 }) {
   const railRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; left: number } | null>(null)
   const dragMoved = useRef(false)
+  const [scrollLeft, setScrollLeft] = useState(index * REL_STRIDE)
 
   useEffect(() => {
     const el = railRef.current
     if (!el) return
     el.scrollTo({ left: index * REL_STRIDE })
+    setScrollLeft(index * REL_STRIDE)
   }, [])
 
   const snap = () => {
@@ -812,18 +1427,20 @@ function RelationshipStep({
     if (!el) return
     const next = Math.max(
       0,
-      Math.min(RELATIONSHIP_TYPES.length - 1, Math.round(el.scrollLeft / REL_STRIDE)),
+      Math.min(relationshipTypes.length - 1, Math.round(el.scrollLeft / REL_STRIDE)),
     )
     el.scrollTo({ left: next * REL_STRIDE, behavior: 'smooth' })
     onIndexChange(next)
   }
 
   const onScroll = (e: UIEvent<HTMLDivElement>) => {
+    const left = e.currentTarget.scrollLeft
+    setScrollLeft(left)
     const next = Math.max(
       0,
       Math.min(
-        RELATIONSHIP_TYPES.length - 1,
-        Math.round(e.currentTarget.scrollLeft / REL_STRIDE),
+        relationshipTypes.length - 1,
+        Math.round(left / REL_STRIDE),
       ),
     )
     if (next !== index) onIndexChange(next)
@@ -851,8 +1468,10 @@ function RelationshipStep({
     snap()
   }
 
+  const progressPos = scrollLeft / REL_STRIDE
+
   return (
-    <ScreenShell>
+    <ScreenShell onBack={onBack} progress={progress}>
       <div
         style={{
           paddingTop: 100,
@@ -870,7 +1489,7 @@ function RelationshipStep({
             letterSpacing: '-0.02em',
             color: INK,
             textAlign: 'center',
-            lineHeight: 1.25,
+            lineHeight: TITLE_LH,
           }}
         >
           What relationship type are you looking for?
@@ -878,7 +1497,7 @@ function RelationshipStep({
 
         <div
           ref={railRef}
-          className="fuibo-scroll"
+          className="date-wheel"
           onScroll={onScroll}
           onMouseDown={onMouseDown}
           onMouseMove={onMouseMove}
@@ -887,72 +1506,148 @@ function RelationshipStep({
           style={{
             display: 'flex',
             overflowX: 'auto',
-            gap: 16,
-            padding: '0 calc(50% - 136px)',
+            gap: REL_GAP,
+            padding: `0 calc(50% - ${REL_CARD_W / 2}px)`,
+            boxSizing: 'border-box',
             cursor: 'grab',
             userSelect: 'none',
             flex: 1,
-            maxHeight: 420,
+            minHeight: 0,
+            scrollbarWidth: 'none',
+            msOverflowStyle: 'none',
+            perspective: 1200,
           }}
         >
-          {RELATIONSHIP_TYPES.map((type) => (
-            <div
-              key={type.id}
-              style={{
-                flex: 'none',
-                width: 272,
-                height: '100%',
-                maxHeight: 400,
-                borderRadius: 28,
-                overflow: 'hidden',
-                position: 'relative',
-                boxShadow: '0 16px 40px rgba(26,39,86,0.16)',
-              }}
-            >
-              <img
-                src={type.image}
-                alt={type.title}
-                draggable={false}
-                style={{
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                  display: 'block',
-                }}
-              />
+          {relationshipTypes.map((type, i) => {
+            const offset = progressPos - i
+            const dist = Math.min(1, Math.abs(offset))
+            const scale = 1 - dist * 0.12
+            const opacity = 1 - dist * 0.12
+            const rotateY = offset * -12
+
+            return (
               <div
+                key={type.id}
                 style={{
-                  position: 'absolute',
-                  left: 0,
-                  right: 0,
-                  bottom: 0,
-                  padding: '48px 20px 22px',
-                  background:
-                    'linear-gradient(180deg, transparent, rgba(0,0,0,0.72))',
-                  color: '#fff',
+                  flex: 'none',
+                  width: REL_CARD_W,
+                  height: '100%',
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  zIndex: Math.round((1 - dist) * 10),
                 }}
               >
-                <div style={{ fontSize: 28, fontWeight: 600 }}>{type.title}</div>
                 <div
                   style={{
-                    marginTop: 4,
-                    fontSize: 15,
-                    opacity: 0.9,
-                    fontWeight: 400,
+                    width: '100%',
+                    height: '100%',
+                    borderRadius: 28,
+                    overflow: 'hidden',
+                    position: 'relative',
+                    background: '#111',
+                    transform: `scale(${scale}) rotateY(${rotateY}deg)`,
+                    opacity,
+                    transformOrigin: 'center center',
+                    willChange: 'transform, opacity',
                   }}
                 >
-                  {type.subtitle}
+                  <img
+                    src={type.image}
+                    alt={type.title}
+                    draggable={false}
+                    style={{
+                      width: '100%',
+                      height: '100%',
+                      objectFit: 'cover',
+                      display: 'block',
+                    }}
+                  />
+                  <div
+                    style={{
+                      position: 'absolute',
+                      top: 18,
+                      left: 16,
+                      right: 36,
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'flex-start',
+                      gap: 8,
+                      pointerEvents: 'none',
+                    }}
+                  >
+                    {type.bubbles.slice(0, 1).map((bubble) => (
+                      <div
+                        key={bubble}
+                        style={{
+                          maxWidth: '100%',
+                          padding: '8px 12px',
+                          borderRadius: 16,
+                          background: 'rgba(255,255,255,0.94)',
+                          color: '#17151C',
+                          fontSize: 13,
+                          fontWeight: 400,
+                          lineHeight: 1.25,
+                          boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
+                          backdropFilter: 'blur(8px)',
+                          position: 'relative',
+                        }}
+                      >
+                        {bubble}
+                        <span
+                          aria-hidden
+                          style={{
+                            position: 'absolute',
+                            left: 12,
+                            bottom: -7,
+                            width: 14,
+                            height: 9,
+                            background: 'rgba(255,255,255,0.94)',
+                            clipPath: 'polygon(0 0, 100% 0, 0 100%)',
+                          }}
+                        />
+                      </div>
+                    ))}
+                  </div>
+                  <div
+                    style={{
+                      position: 'absolute',
+                      left: 0,
+                      right: 0,
+                      bottom: 0,
+                      padding: '56px 22px 24px',
+                      background:
+                        'linear-gradient(180deg, rgba(0,0,0,0) 0%, rgba(0,0,0,0.55) 45%, rgba(0,0,0,0.82) 100%)',
+                      color: '#fff',
+                    }}
+                  >
+                    <div style={{ fontSize: 28, fontWeight: 600 }}>
+                      {type.title}
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 4,
+                        fontSize: 15,
+                        opacity: 0.9,
+                        fontWeight: 400,
+                      }}
+                    >
+                      {type.subtitle}
+                    </div>
+                  </div>
                 </div>
               </div>
-            </div>
-          ))}
+            )
+          })}
         </div>
 
         <div
           style={{
+            marginTop: 32,
+            marginBottom: ACTION_BOTTOM,
             display: 'flex',
             justifyContent: 'center',
-            padding: '28px 0 56px',
+            flex: 'none',
           }}
         >
           <NextButton onClick={onNext} />
@@ -969,13 +1664,6 @@ function meetImageSrc(yoshiIndex: number, variation: number) {
   return `/assets/meet-yoshi/${yoshiIndex + 1}.${variation + 1}.png`
 }
 
-function angleFromCenter(x: number, y: number, cx: number, cy: number) {
-  const rad = Math.atan2(x - cx, cy - y)
-  let deg = (rad * 180) / Math.PI
-  if (deg < 0) deg += 360
-  return deg
-}
-
 export type MeetSelection = {
   image: string
   /** 0 = cool · 50 = neutral · 100 = warm */
@@ -985,19 +1673,21 @@ export type MeetSelection = {
 /** Subtle temperature tone — no wild hue swings */
 function warmthFilter(warmth: number) {
   const t = Math.max(0, Math.min(100, warmth)) / 100
-  const sepia = t * 0.28
-  const saturate = 0.92 + t * 0.2
-  const hue = (0.5 - t) * 12
-  const bright = 1 + (t - 0.5) * 0.05
+  const d = (t - 0.5) * 2
+  const warm = Math.max(0, d)
+  const cool = Math.max(0, -d)
+  const sepia = warm * 0.32
+  const saturate = 1 + warm * 0.22 - cool * 0.08
+  const hue = cool * 8 - warm * 12
+  const bright = 1 + d * 0.04
   return `sepia(${sepia}) saturate(${saturate}) hue-rotate(${hue}deg) brightness(${bright})`
 }
 
 function warmthOverlay(warmth: number) {
   const t = Math.max(0, Math.min(100, warmth)) / 100
-  if (t >= 0.5) {
-    return `rgba(255, 150, 70, ${(t - 0.5) * 0.34})`
-  }
-  return `rgba(90, 150, 255, ${(0.5 - t) * 0.3})`
+  const d = (t - 0.5) * 2
+  if (d >= 0) return `rgba(255, 150, 70, ${d * 0.34})`
+  return `rgba(90, 150, 255, ${Math.abs(d) * 0.14})`
 }
 
 const MEET_YOSHI_PX = 64
@@ -1006,7 +1696,6 @@ const AXIS_LOCK_PX = 12
 /** Mid-range so scrubbing works both ways from the start */
 const START_YOSHI = Math.floor((MEET_YOSHI_COUNT - 1) / 2)
 const START_LOOK = Math.floor((MEET_VARIATIONS - 1) / 2)
-const WARMTH_KNOB = 72
 
 function WarmthSpinner({
   warmth,
@@ -1015,73 +1704,132 @@ function WarmthSpinner({
   warmth: number
   onWarmthChange: (w: number) => void
 }) {
-  const knobRef = useRef<HTMLDivElement>(null)
+  const controlRef = useRef<HTMLDivElement>(null)
   const dragging = useRef(false)
-  const start = useRef({ angle: 0, warmth: 50 })
+  const dragSide = useRef<-1 | 0 | 1>(0)
+  const arcLimit = 155
+  const switchZone = 32
+  const angle = ((Math.max(0, Math.min(100, warmth)) - 50) / 50) * arcLimit
+  const center = 36
+  const radius = 34
+  const knobX = center + Math.sin((angle * Math.PI) / 180) * radius
+  const knobY = center - Math.cos((angle * Math.PI) / 180) * radius
 
-  const needleAngle = (warmth / 100) * 270 - 135
+  const pointOnArc = (deg: number) => ({
+    x: center + Math.sin((deg * Math.PI) / 180) * radius,
+    y: center - Math.cos((deg * Math.PI) / 180) * radius,
+  })
+  const start = pointOnArc(-arcLimit)
+  const end = pointOnArc(arcLimit)
+  const arcPath = `M ${start.x} ${start.y} A ${radius} ${radius} 0 1 1 ${end.x} ${end.y}`
+  const arcSegment = (from: number, to: number) => {
+    const a = pointOnArc(from)
+    const b = pointOnArc(to)
+    const largeArc = Math.abs(to - from) > 180 ? 1 : 0
+    const sweep = to >= from ? 1 : 0
+    return `M ${a.x} ${a.y} A ${radius} ${radius} 0 ${largeArc} ${sweep} ${b.x} ${b.y}`
+  }
+  const mixHex = (from: string, to: string, t: number) => {
+    const parse = (hex: string) => ({
+      r: Number.parseInt(hex.slice(1, 3), 16),
+      g: Number.parseInt(hex.slice(3, 5), 16),
+      b: Number.parseInt(hex.slice(5, 7), 16),
+    })
+    const a = parse(from)
+    const b = parse(to)
+    const mix = (x: number, y: number) => Math.round(x + (y - x) * t)
+    return `rgb(${mix(a.r, b.r)}, ${mix(a.g, b.g)}, ${mix(a.b, b.b)})`
+  }
+  const gradientColor = (stops: string[], t: number) => {
+    const scaled = Math.max(0, Math.min(1, t)) * (stops.length - 1)
+    const i = Math.min(stops.length - 2, Math.floor(scaled))
+    return mixHex(stops[i], stops[i + 1], scaled - i)
+  }
+  const segmentCount = Math.max(0, Math.ceil(Math.abs(angle) / 7))
+  const activeSegments = Array.from({ length: segmentCount }, (_, i) => {
+      const t0 = i / segmentCount
+      const t1 = (i + 1) / segmentCount
+      const a0 = angle * t0
+      const a1 = angle * t1
+      const warmStops = ['#FFE45C', '#FF9A2E', '#B8641F']
+      const coolStops = ['#5CCBFF', '#8067FF', '#173B9A']
+      return {
+        d: angle > 0 ? arcSegment(a0, a1) : arcSegment(a1, a0),
+        color: gradientColor(angle > 0 ? warmStops : coolStops, t1),
+      }
+    },
+  )
 
-  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    e.stopPropagation()
-    const el = knobRef.current
+  const updateFromPoint = (clientX: number, clientY: number) => {
+    const el = controlRef.current
     if (!el) return
     const rect = el.getBoundingClientRect()
     const cx = rect.left + rect.width / 2
     const cy = rect.top + rect.height / 2
-    dragging.current = true
-    start.current = {
-      angle: angleFromCenter(e.clientX, e.clientY, cx, cy),
-      warmth,
+    const dx = clientX - cx
+    const dy = clientY - cy
+    const rawAngle = (Math.atan2(dx, -dy) * 180) / Math.PI
+    let clamped = rawAngle
+
+    // Do not allow crossing sides through the bottom gap. The only valid way
+    // to switch sides is by returning near the neutral/top position first.
+    if (dragSide.current > 0 && rawAngle < -switchZone) {
+      clamped = arcLimit
+    } else if (dragSide.current < 0 && rawAngle > switchZone) {
+      clamped = -arcLimit
+    } else if (rawAngle > arcLimit) {
+      clamped = dragSide.current < 0 ? -arcLimit : arcLimit
+    } else if (rawAngle < -arcLimit) {
+      clamped = dragSide.current > 0 ? arcLimit : -arcLimit
     }
+    const snapped = Math.abs(clamped) < 8 ? 0 : clamped
+    dragSide.current = snapped === 0 ? 0 : snapped > 0 ? 1 : -1
+    onWarmthChange(50 + (snapped / arcLimit) * 50)
+  }
+
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    e.stopPropagation()
+    const el = controlRef.current
+    if (!el) return
+    dragging.current = true
+    dragSide.current = angle === 0 ? 0 : angle > 0 ? 1 : -1
     el.setPointerCapture(e.pointerId)
+    updateFromPoint(e.clientX, e.clientY)
   }
 
   const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
     if (!dragging.current) return
     e.stopPropagation()
-    const el = knobRef.current
-    if (!el) return
-    const rect = el.getBoundingClientRect()
-    const cx = rect.left + rect.width / 2
-    const cy = rect.top + rect.height / 2
-    const ang = angleFromCenter(e.clientX, e.clientY, cx, cy)
-    let delta = ang - start.current.angle
-    if (delta > 180) delta -= 360
-    if (delta < -180) delta += 360
-    onWarmthChange(
-      Math.max(0, Math.min(100, start.current.warmth + delta * (100 / 270))),
-    )
+    updateFromPoint(e.clientX, e.clientY)
   }
 
   const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
     e.stopPropagation()
     dragging.current = false
     try {
-      knobRef.current?.releasePointerCapture(e.pointerId)
+      controlRef.current?.releasePointerCapture(e.pointerId)
     } catch {
       /* already released */
     }
   }
 
-  const ticks = Array.from({ length: 24 }, (_, i) => i)
-
   return (
     <div
-      ref={knobRef}
+      ref={controlRef}
       onPointerDown={onPointerDown}
       onPointerMove={onPointerMove}
       onPointerUp={onPointerUp}
       onPointerCancel={onPointerUp}
-      title="Drag to adjust warmth"
+      title="Drag to adjust tone"
       style={{
         position: 'absolute',
         right: 12,
         bottom: 12,
-        width: WARMTH_KNOB,
-        height: WARMTH_KNOB,
+        width: 72,
+        height: 72,
         borderRadius: '50%',
         background: 'rgba(255,255,255,0.92)',
-        boxShadow: '0 6px 18px rgba(0,0,0,0.22)',
+        boxShadow: '0 6px 18px rgba(0,0,0,0.2)',
         zIndex: 5,
         touchAction: 'none',
         cursor: 'grab',
@@ -1089,74 +1837,69 @@ function WarmthSpinner({
       }}
     >
       <svg
-        viewBox="0 0 100 100"
-        style={{ position: 'absolute', inset: 0, width: '100%', height: '100%' }}
-      >
-        {ticks.map((i) => {
-          const a = (i / 24) * Math.PI * 2 - Math.PI / 2
-          const outer = 46
-          const inner = i % 3 === 0 ? 38 : 41
-          return (
-            <line
-              key={i}
-              x1={50 + Math.cos(a) * inner}
-              y1={50 + Math.sin(a) * inner}
-              x2={50 + Math.cos(a) * outer}
-              y2={50 + Math.sin(a) * outer}
-              stroke={INK}
-              strokeWidth={i % 3 === 0 ? 1.6 : 1}
-              strokeLinecap="round"
-              opacity={0.35}
-            />
-          )
-        })}
-      </svg>
-      <div
-        style={{
-          position: 'absolute',
-          left: '50%',
-          top: '50%',
-          width: 0,
-          height: 0,
-          transform: `rotate(${needleAngle}deg)`,
-          pointerEvents: 'none',
-        }}
-      >
-        <div
-          style={{
-            position: 'absolute',
-            left: -1.5,
-            top: -28,
-            width: 3,
-            height: 22,
-            borderRadius: 2,
-            background: INK,
-          }}
-        />
-      </div>
-      <div
+        viewBox="-8 -8 88 88"
         style={{
           position: 'absolute',
           inset: 0,
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'center',
-          fontSize: 10,
-          fontWeight: 600,
-          color: INK,
-          pointerEvents: 'none',
+          width: '100%',
+          height: '100%',
+          overflow: 'visible',
         }}
       >
-        {Math.round(warmth) < 45 ? 'Cool' : Math.round(warmth) > 55 ? 'Warm' : '—'}
-      </div>
+        <path
+          d={arcPath}
+          fill="none"
+          stroke="rgba(26,39,86,0.2)"
+          strokeWidth="6"
+          strokeLinecap="round"
+        />
+        {activeSegments.map((segment, i) => (
+          <path
+            key={i}
+            d={segment.d}
+            fill="none"
+            stroke={segment.color}
+            strokeWidth="6"
+            strokeLinecap="round"
+          />
+        ))}
+        <line
+          x1={center}
+          y1={-2}
+          x2={center}
+          y2={17}
+          stroke={INK}
+          strokeWidth="2"
+          strokeLinecap="round"
+          opacity="0.55"
+        />
+        <circle
+          cx={knobX}
+          cy={knobY}
+          r="11"
+          fill="#fff"
+          stroke={INK}
+          strokeWidth="2"
+          style={{ filter: 'drop-shadow(0 2px 5px rgba(0,0,0,0.22))' }}
+        />
+      </svg>
     </div>
   )
 }
 
-function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }) {
+function MeetStep({
+  onChosen,
+  onBack,
+  progress,
+}: {
+  onChosen: (selection: MeetSelection) => void
+  onBack: () => void
+  progress: number
+}) {
   const [yoshiIndex, setYoshiIndex] = useState(START_YOSHI)
   const [variation, setVariation] = useState(START_LOOK)
   const [warmth, setWarmth] = useState(50)
+  const [customPhoto, setCustomPhoto] = useState<string | null>(null)
   const [slide, setSlide] = useState({ x: 0, y: 0 })
   const [holdProgress, setHoldProgress] = useState(0)
   const [panning, setPanning] = useState(false)
@@ -1179,6 +1922,7 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
   const holdRaf = useRef(0)
   const holdStart = useRef(0)
   const holdBtnRef = useRef<HTMLButtonElement>(null)
+  const photoInputRef = useRef<HTMLInputElement>(null)
   const selectionRef = useRef<MeetSelection>({
     image: meetImageSrc(START_YOSHI, START_LOOK),
     warmth: 50,
@@ -1186,11 +1930,16 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
   const onChosenRef = useRef(onChosen)
   onChosenRef.current = onChosen
 
-  const image = meetImageSrc(yoshiIndex, variation)
+  const customYoshiIndex = MEET_YOSHI_COUNT
+  const totalYoshis = MEET_YOSHI_COUNT + (customPhoto ? 1 : 0)
+  const selectedCustomPhoto = customPhoto != null && yoshiIndex === customYoshiIndex
+  const image = selectedCustomPhoto
+    ? customPhoto
+    : meetImageSrc(Math.min(yoshiIndex, MEET_YOSHI_COUNT - 1), variation)
   selectionRef.current = { image, warmth }
 
   const clampYoshi = (v: number) =>
-    Math.max(0, Math.min(MEET_YOSHI_COUNT - 1, v))
+    Math.max(0, Math.min(totalYoshis - 1, v))
   const clampLook = (v: number) =>
     Math.max(0, Math.min(MEET_VARIATIONS - 1, v))
 
@@ -1198,6 +1947,17 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
     yoshiPos.current = clampYoshi(yoshiPos.current)
     const y = yoshiPos.current
     const yNear = Math.round(y)
+
+    if (customPhoto != null && yNear === customYoshiIndex) {
+      varPos.current = START_LOOK
+      setYoshiIndex(yNear)
+      setVariation(START_LOOK)
+      setSlide({
+        x: axis === 'vertical' ? 0 : -(y - yNear) * 40,
+        y: 0,
+      })
+      return
+    }
 
     if (axis === 'vertical') {
       varPos.current = clampLook(varPos.current)
@@ -1232,7 +1992,7 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
   const tickHold = (t: number) => {
     if (!holding.current) return
     if (holdStart.current === 0) holdStart.current = t
-    const p = Math.min(1, (t - holdStart.current) / 900)
+    const p = Math.min(1, (t - holdStart.current) / 2200)
     setHoldProgress(p)
     if (p >= 1) {
       holding.current = false
@@ -1269,6 +2029,25 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
     if (holding.current) stopHold()
   }
 
+  const openPhotoPicker = () => {
+    photoInputRef.current?.click()
+  }
+
+  const onPhotoSelected = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.currentTarget.files?.[0]
+    if (!file) return
+    const imageUrl = URL.createObjectURL(file)
+    if (customPhoto?.startsWith('blob:')) URL.revokeObjectURL(customPhoto)
+    setCustomPhoto(imageUrl)
+    yoshiPos.current = customYoshiIndex
+    varPos.current = START_LOOK
+    setYoshiIndex(customYoshiIndex)
+    setVariation(START_LOOK)
+    setSlide({ x: 0, y: 0 })
+    setGuide(null)
+    e.currentTarget.value = ''
+  }
+
   useEffect(() => () => cancelAnimationFrame(holdRaf.current), [])
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -1281,7 +2060,10 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
     mode.current = 'pan'
     const yNear = Math.round(clampYoshi(yoshiPos.current))
     yoshiPos.current = yNear
-    varPos.current = clampLook(looksByYoshi.current[yNear] ?? START_LOOK)
+    varPos.current =
+      customPhoto != null && yNear === customYoshiIndex
+        ? START_LOOK
+        : clampLook(looksByYoshi.current[yNear] ?? START_LOOK)
     setPanning(true)
     setGuide(null)
   }
@@ -1305,9 +2087,14 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
     if (panAxis.current === 'horizontal') {
       yoshiPos.current -= dx / MEET_YOSHI_PX
       syncFromPos('horizontal')
-      const span = Math.max(1, MEET_YOSHI_COUNT - 1)
+      const span = Math.max(1, totalYoshis - 1)
       setGuide({ kind: 'horizontal', t: yoshiPos.current / span })
     } else {
+      if (customPhoto != null && Math.round(yoshiPos.current) === customYoshiIndex) {
+        setSlide({ x: 0, y: 0 })
+        setGuide(null)
+        return
+      }
       varPos.current -= dy / MEET_LOOK_PX
       syncFromPos('vertical')
       const span = Math.max(1, MEET_VARIATIONS - 1)
@@ -1328,7 +2115,9 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
     if (mode.current === 'pan') {
       const yNear = Math.round(clampYoshi(yoshiPos.current))
       yoshiPos.current = yNear
-      if (panAxis.current === 'vertical') {
+      if (customPhoto != null && yNear === customYoshiIndex) {
+        varPos.current = START_LOOK
+      } else if (panAxis.current === 'vertical') {
         const snapped = Math.round(clampLook(varPos.current))
         looksByYoshi.current[yNear] = snapped
         varPos.current = snapped
@@ -1349,10 +2138,10 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
   }
 
   return (
-    <ScreenShell>
+    <ScreenShell onBack={onBack} progress={progress}>
       <div
         style={{
-          padding: '72px 20px 0',
+          padding: '100px 20px 0',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -1362,28 +2151,17 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
       >
         <h1
           style={{
-            margin: 0,
+            margin: '0 32px 28px',
             fontSize: 28,
             fontWeight: 600,
             letterSpacing: '-0.02em',
             color: INK,
             textAlign: 'center',
+            lineHeight: TITLE_LH,
           }}
         >
-          Meet your Yoshi
+          Choose your Yoshi
         </h1>
-        <p
-          style={{
-            margin: '8px 0 16px',
-            fontSize: 15,
-            color: MUTED,
-            textAlign: 'center',
-            maxWidth: 280,
-            lineHeight: 1.4,
-          }}
-        >
-          Sideways for Yoshi · up/down for looks · spin the dial for warmth
-        </p>
 
         <div
           ref={stageRef}
@@ -1394,9 +2172,9 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
           style={{
             position: 'relative',
             width: 'min(100%, 360px)',
-            flex: '1 1 auto',
-            maxHeight: 460,
-            minHeight: 360,
+            flex: '0 1 66%',
+            maxHeight: 'none',
+            minHeight: 0,
             touchAction: 'none',
             cursor: 'grab',
             userSelect: 'none',
@@ -1409,7 +2187,10 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
               borderRadius: 28,
               overflow: 'hidden',
               background: '#ddd',
-              boxShadow: '0 12px 32px rgba(26,39,86,0.14)',
+              boxShadow: '0 8px 18px rgba(26,39,86,0.09)',
+              animation:
+                holdProgress > 0 ? 'yoshiHoldWobble 2.2s ease-in-out infinite' : undefined,
+              transformOrigin: 'center center',
             }}
           >
             <img
@@ -1435,6 +2216,46 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
                 pointerEvents: 'none',
               }}
             />
+            {holdProgress > 0 && (
+              <>
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background:
+                      'linear-gradient(110deg, transparent 0%, transparent 38%, rgba(255,255,255,0.42) 48%, rgba(255,255,255,0.2) 54%, transparent 66%, transparent 100%)',
+                    backgroundSize: '220% 100%',
+                    animation: 'yoshiShimmer 2s ease-in-out infinite',
+                    mixBlendMode: 'screen',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background:
+                      'linear-gradient(35deg, transparent 0%, transparent 42%, rgba(255,255,255,0.3) 50%, transparent 62%, transparent 100%)',
+                    backgroundSize: '180% 180%',
+                    animation: 'yoshiShimmerDiagonal 2s ease-in-out infinite',
+                    mixBlendMode: 'screen',
+                    pointerEvents: 'none',
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background:
+                      'linear-gradient(200deg, transparent 0%, transparent 44%, rgba(255,255,255,0.24) 52%, transparent 64%, transparent 100%)',
+                    backgroundSize: '180% 180%',
+                    animation: 'yoshiShimmerReverse 2s ease-in-out infinite',
+                    mixBlendMode: 'screen',
+                    pointerEvents: 'none',
+                  }}
+                />
+              </>
+            )}
           </div>
 
           {/* Short guides (~5% of card) while dragging */}
@@ -1474,33 +2295,64 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
           <WarmthSpinner warmth={warmth} onWarmthChange={setWarmth} />
         </div>
 
-        <button
-          type="button"
-          onClick={() => onChosen({ image, warmth })}
+        <div
           style={{
-            marginTop: 12,
-            border: 'none',
-            background: 'transparent',
+            marginTop: 22,
+            marginBottom: 22,
+            display: 'flex',
+            justifyContent: 'center',
+            gap: 9,
             color: MUTED,
-            fontSize: 15,
-            cursor: 'pointer',
-            fontFamily: 'inherit',
+            fontSize: 13,
+            lineHeight: 1,
             flex: 'none',
           }}
         >
-          Add your photo instead
-        </button>
+          <span>↔ swap Yoshi</span>
+          <span>·</span>
+          <span>↕ looks</span>
+          <span>·</span>
+          <span>↻ warmth</span>
+        </div>
 
         <div
           style={{
             marginTop: 'auto',
-            marginBottom: 40,
+            marginBottom: ACTION_BOTTOM,
             width: '100%',
             display: 'flex',
+            gap: 12,
             justifyContent: 'center',
+            alignItems: 'center',
             flex: 'none',
           }}
         >
+          <button
+            type="button"
+            onClick={openPhotoPicker}
+            style={{
+              width: 112,
+              height: 58,
+              borderRadius: 999,
+              border: '1px solid rgba(26,39,86,0.12)',
+              background: 'rgba(255,255,255,0.5)',
+              color: MUTED,
+              fontSize: 15,
+              fontWeight: 600,
+              cursor: 'pointer',
+              fontFamily: 'inherit',
+              flex: 'none',
+            }}
+          >
+            Add photo
+          </button>
+          <input
+            ref={photoInputRef}
+            type="file"
+            accept="image/*"
+            onChange={onPhotoSelected}
+            style={{ display: 'none' }}
+          />
           <button
             ref={holdBtnRef}
             type="button"
@@ -1509,8 +2361,8 @@ function MeetStep({ onChosen }: { onChosen: (selection: MeetSelection) => void }
             onPointerCancel={endHold}
             onContextMenu={(e) => e.preventDefault()}
             style={{
-              width: '100%',
-              maxWidth: 300,
+              flex: 1,
+              maxWidth: 212,
               height: 58,
               borderRadius: 999,
               border: 'none',
@@ -1554,15 +2406,19 @@ function NameYoshiStep({
   value,
   onChange,
   onNext,
+  onBack,
+  progress,
 }: {
   image: string
   warmth: number
   value: string
   onChange: (v: string) => void
   onNext: () => void
+  onBack: () => void
+  progress: number
 }) {
   return (
-    <ScreenShell>
+    <ScreenShell onBack={onBack} progress={progress} headerVariant="dark">
       <div
         style={{
           height: '100%',
@@ -1636,7 +2492,16 @@ function NameYoshiStep({
               textAlign: 'center',
             }}
           />
-          <NextButton onClick={onNext} disabled={!value.trim()} />
+          <div
+            style={{
+              marginTop: 'auto',
+              marginBottom: ACTION_BOTTOM,
+              display: 'flex',
+              justifyContent: 'center',
+            }}
+          >
+            <NextButton onClick={onNext} disabled={!value.trim()} />
+          </div>
         </div>
       </div>
     </ScreenShell>
@@ -1649,7 +2514,7 @@ export function Onboarding({ onComplete }: Props) {
   const [day, setDay] = useState(1)
   const [month, setMonth] = useState(0)
   const [year, setYear] = useState(2000)
-  const [interests, setInterests] = useState<string[]>([])
+  const [hobbies, setHobbies] = useState<string[]>([])
   const [relIndex, setRelIndex] = useState(0)
   const [yoshiName, setYoshiName] = useState('')
   const [meetSelection, setMeetSelection] = useState<MeetSelection>({
@@ -1657,30 +2522,44 @@ export function Onboarding({ onComplete }: Props) {
     warmth: 50,
   })
 
-  const relationship = RELATIONSHIP_TYPES[relIndex]
+  const under18 = isUnder18(day, month, year)
+  const relationshipTypes = under18
+    ? RELATIONSHIP_TYPES.filter((type) => type.id !== 'romance')
+    : RELATIONSHIP_TYPES
+  const relationship =
+    relationshipTypes[Math.min(relIndex, relationshipTypes.length - 1)] ??
+    RELATIONSHIP_TYPES[1]
   const showKeyboard = step === 'name' || step === 'nameYoshi'
+  const chosenYoshiName = yoshiName.trim() || 'Yoshi'
+
+  useEffect(() => {
+    if (relIndex >= relationshipTypes.length) {
+      setRelIndex(Math.max(0, relationshipTypes.length - 1))
+    }
+  }, [relIndex, relationshipTypes.length])
 
   const landOnHome = (name = userName.trim()) => {
-    // Prototype: always land on Fuibo Flower regardless of onboarding choices
+    // Prototype: home shell stays Fuibo Flower; portrait/name follow onboarding picks
     const fuibo = getYoshi(DEFAULT_YOSHI_ID)
     onComplete({
       userName: name,
       yoshiId: fuibo.id,
-      yoshiName: fuibo.name,
-      yoshiImage: fuibo.image,
+      yoshiName: chosenYoshiName,
+      yoshiImage: meetSelection.image,
       relationshipId: relationship.id,
     })
   }
 
-  const finish = () => {
-    if (!yoshiName.trim()) return
-    landOnHome()
-  }
-
-  const toggleInterest = (id: string) => {
-    setInterests((prev) =>
+  const toggleHobby = (id: string) => {
+    setHobbies((prev) =>
       prev.includes(id) ? prev.filter((x) => x !== id) : [...prev, id],
     )
+  }
+
+  const progress = flowProgress(step)
+  const goBack = () => {
+    const prev = flowBackTarget(step)
+    if (prev) setStep(prev)
   }
 
   let body: ReactNode = null
@@ -1701,6 +2580,8 @@ export function Onboarding({ onComplete }: Props) {
         onNext={() => {
           if (userName.trim()) setStep('birthday')
         }}
+        onBack={goBack}
+        progress={progress}
       />
     )
   } else if (step === 'birthday') {
@@ -1712,25 +2593,20 @@ export function Onboarding({ onComplete }: Props) {
         onDay={setDay}
         onMonth={setMonth}
         onYear={setYear}
-        onNext={() => setStep('interests')}
-      />
-    )
-  } else if (step === 'interests') {
-    body = (
-      <InterestsStep
-        selected={interests}
-        onToggle={toggleInterest}
-        onNext={() => {
-          if (interests.length >= 3) setStep('relationship')
-        }}
+        onNext={() => setStep('relationship')}
+        onBack={goBack}
+        progress={progress}
       />
     )
   } else if (step === 'relationship') {
     body = (
       <RelationshipStep
+        relationshipTypes={relationshipTypes}
         index={relIndex}
         onIndexChange={setRelIndex}
         onNext={() => setStep('meet')}
+        onBack={goBack}
+        progress={progress}
       />
     )
   } else if (step === 'meet') {
@@ -1740,16 +2616,60 @@ export function Onboarding({ onComplete }: Props) {
           setMeetSelection(selection)
           setStep('nameYoshi')
         }}
+        onBack={goBack}
+        progress={progress}
       />
     )
-  } else {
+  } else if (step === 'nameYoshi') {
     body = (
       <NameYoshiStep
         image={meetSelection.image}
         warmth={meetSelection.warmth}
         value={yoshiName}
         onChange={setYoshiName}
-        onNext={finish}
+        onNext={() => {
+          if (yoshiName.trim()) setStep('meetChat')
+        }}
+        onBack={goBack}
+        progress={progress}
+      />
+    )
+  } else if (step === 'meetChat') {
+    body = (
+      <MeetChatStep
+        yoshiName={chosenYoshiName}
+        userName={userName.trim() || 'friend'}
+        image={meetSelection.image}
+        warmth={meetSelection.warmth}
+        onNext={() => setStep('hobbies')}
+        onBack={goBack}
+        progress={progress}
+      />
+    )
+  } else if (step === 'hobbies') {
+    body = (
+      <HobbiesChatStep
+        image={meetSelection.image}
+        warmth={meetSelection.warmth}
+        selected={hobbies}
+        onToggle={toggleHobby}
+        onNext={() => {
+          if (hobbies.length >= 3) setStep('notifications')
+        }}
+        onBack={goBack}
+        progress={progress}
+      />
+    )
+  } else {
+    body = (
+      <NotificationsStep
+        yoshiName={chosenYoshiName}
+        image={meetSelection.image}
+        warmth={meetSelection.warmth}
+        onAllow={() => landOnHome()}
+        onSkip={() => landOnHome()}
+        onBack={goBack}
+        progress={progress}
       />
     )
   }
