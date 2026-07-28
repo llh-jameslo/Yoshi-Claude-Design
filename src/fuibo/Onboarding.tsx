@@ -29,6 +29,7 @@ type Step =
   | 'name'
   | 'birthday'
   | 'relationship'
+  | 'preparing'
   | 'meet'
   | 'nameYoshi'
   | 'meetChat'
@@ -64,6 +65,7 @@ function flowProgress(step: Step) {
 }
 
 function flowBackTarget(step: Step): Step | null {
+  if (step === 'preparing' || step === 'meet') return 'relationship'
   const i = FLOW_STEPS.indexOf(step)
   if (i < 0) return null
   if (i === 0) return 'welcome'
@@ -114,6 +116,8 @@ const HOBBIES = [
   { id: 'gardening', label: 'Gardening' },
   { id: 'art', label: 'Art' },
 ] as const
+
+const MEET_GIF_SRC = '/assets/onboarding/rickroll-rick.png'
 
 const ACCENT = '#C05A3C'
 
@@ -861,72 +865,6 @@ function BirthdayStep({
   )
 }
 
-function YoshiAvatar({
-  image,
-  warmth,
-  size = 44,
-}: {
-  image: string
-  warmth: number
-  size?: number
-}) {
-  return (
-    <div
-      style={{
-        width: size,
-        height: size,
-        borderRadius: '50%',
-        overflow: 'hidden',
-        flex: 'none',
-        boxShadow: '0 4px 14px rgba(26,39,86,0.14)',
-        background: '#ddd',
-        position: 'relative',
-      }}
-    >
-      <img
-        src={image}
-        alt=""
-        style={{
-          width: '100%',
-          height: '100%',
-          objectFit: 'cover',
-          objectPosition: '50% 18%',
-          display: 'block',
-          filter: warmthFilter(warmth),
-        }}
-      />
-      <div
-        style={{
-          position: 'absolute',
-          inset: 0,
-          background: warmthOverlay(warmth),
-          pointerEvents: 'none',
-        }}
-      />
-    </div>
-  )
-}
-
-function ChatBubble({ children }: { children: ReactNode }) {
-  return (
-    <div
-      style={{
-        background: '#fff',
-        borderRadius: 18,
-        padding: '14px 16px',
-        boxShadow: '0 6px 18px rgba(26,39,86,0.08)',
-        fontSize: 16,
-        fontWeight: 500,
-        lineHeight: 1.35,
-        color: INK,
-        maxWidth: '100%',
-      }}
-    >
-      {children}
-    </div>
-  )
-}
-
 function MeetChatStep({
   yoshiName,
   userName,
@@ -934,7 +872,6 @@ function MeetChatStep({
   warmth,
   onNext,
   onBack,
-  progress,
 }: {
   yoshiName: string
   userName: string
@@ -942,131 +879,345 @@ function MeetChatStep({
   warmth: number
   onNext: () => void
   onBack: () => void
-  progress: number
 }) {
   const [visible, setVisible] = useState(0)
+  const threadRef = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
     const t1 = window.setTimeout(() => setVisible(1), 280)
     const t2 = window.setTimeout(() => setVisible(2), 900)
+    const t3 = window.setTimeout(() => setVisible(3), 1520)
     return () => {
       window.clearTimeout(t1)
       window.clearTimeout(t2)
+      window.clearTimeout(t3)
     }
   }, [])
 
+  useEffect(() => {
+    const el = threadRef.current
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
+  }, [visible])
+
   return (
-    <ScreenShell onBack={onBack} progress={progress}>
+    <ScreenShell style={{ background: '#EDECF2' }}>
+      <img
+        src={image}
+        alt={yoshiName}
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 312,
+          width: '100%',
+          objectFit: 'cover',
+          objectPosition: '50% 20%',
+          borderRadius: '0 0 28px 28px',
+          display: 'block',
+          zIndex: 0,
+          filter: warmthFilter(warmth),
+        }}
+      />
       <div
         style={{
-          padding: '100px 22px 0',
-          height: '100%',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 312,
+          borderRadius: '0 0 28px 28px',
+          background: warmthOverlay(warmth),
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
+      <div
+        ref={threadRef}
+        className="fuibo-scroll"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflowY: 'auto',
+          zIndex: 1,
           display: 'flex',
           flexDirection: 'column',
-          boxSizing: 'border-box',
+          gap: 12,
+          paddingTop: 250,
+          paddingLeft: 18,
+          paddingRight: 18,
+          paddingBottom: 164,
+          WebkitMaskImage:
+            'linear-gradient(to bottom,transparent 122px,#000 312px)',
+          maskImage: 'linear-gradient(to bottom,transparent 122px,#000 312px)',
         }}
       >
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-          <YoshiAvatar image={image} warmth={warmth} />
+        <div aria-hidden style={{ marginTop: 'auto' }} />
+        {visible >= 1 && (
           <div
             style={{
-              flex: 1,
-              display: 'flex',
-              flexDirection: 'column',
-              gap: 10,
-              minWidth: 0,
+              maxWidth: '80%',
+              alignSelf: 'flex-start',
+              background: '#FFFFFF',
+              borderRadius: 18,
+              padding: '14px 16px',
+              fontSize: 15,
+              lineHeight: 1.5,
+              color: '#2A2620',
+              boxShadow: '0 2px 8px rgba(26,24,20,.06)',
+              animation: 'fuiboMsgIn .28s ease',
             }}
           >
-            {visible >= 1 && (
-              <div style={{ animation: 'fuiboSplashIn .45s ease both' }}>
-                <ChatBubble>
-                  {yoshiName}, I like that — I was hoping you’d pick me!
-                </ChatBubble>
-              </div>
-            )}
-            {visible >= 2 && (
-              <div style={{ animation: 'fuiboSplashIn .45s ease both' }}>
-                <ChatBubble>
-                  It’s good to finally meet you, {userName}.
-                </ChatBubble>
-              </div>
-            )}
+            {yoshiName}, I like that — I was hoping you’d pick me!
           </div>
-        </div>
+        )}
+        {visible >= 2 && (
+          <div
+            style={{
+              maxWidth: '80%',
+              alignSelf: 'flex-start',
+              background: '#FFFFFF',
+              borderRadius: 18,
+              padding: '14px 16px',
+              fontSize: 15,
+              lineHeight: 1.5,
+              color: '#2A2620',
+              boxShadow: '0 2px 8px rgba(26,24,20,.06)',
+              animation: 'fuiboMsgIn .28s ease',
+            }}
+          >
+            It’s good to finally meet you, {userName}.
+          </div>
+        )}
+        {visible >= 3 && (
+          <img
+            src={MEET_GIF_SRC}
+            alt="Rick Astley dancing"
+            style={{
+              width: 142,
+              maxWidth: '80%',
+              alignSelf: 'flex-start',
+              borderRadius: 18,
+              display: 'block',
+              animation: 'fuiboMsgIn .28s ease',
+            }}
+          />
+        )}
+      </div>
 
-        <div
-          style={{
-            marginTop: 'auto',
-            marginBottom: ACTION_BOTTOM,
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
-          <NextButton onClick={onNext} disabled={visible < 2} />
-        </div>
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="Back"
+        style={{
+          position: 'absolute',
+          top: 54,
+          left: 16,
+          width: 36,
+          height: 36,
+          borderRadius: '50%',
+          border: 'none',
+          background: '#D9D7E2',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          zIndex: 12,
+          padding: 0,
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+          <path
+            d="M9 3L5 7l4 4"
+            stroke="#fff"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 15,
+          display: 'flex',
+          justifyContent: 'center',
+          padding: `10px 16px ${ACTION_BOTTOM}px`,
+          background: '#EDECF2',
+        }}
+      >
+        <NextButton onClick={onNext} disabled={visible < 3} />
       </div>
     </ScreenShell>
   )
 }
 
 function HobbiesChatStep({
+  yoshiName,
+  userName,
   image,
   warmth,
   selected,
   onToggle,
   onNext,
   onBack,
-  progress,
 }: {
+  yoshiName: string
+  userName: string
   image: string
   warmth: number
   selected: string[]
   onToggle: (id: string) => void
   onNext: () => void
   onBack: () => void
-  progress: number
 }) {
   const count = selected.length
   const ready = count >= 3
+  const threadRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const el = threadRef.current
+    if (!el) return
+    requestAnimationFrame(() => {
+      el.scrollTop = el.scrollHeight
+    })
+  }, [])
 
   return (
-    <ScreenShell onBack={onBack} progress={progress}>
+    <ScreenShell style={{ background: '#EDECF2' }}>
+      <img
+        src={image}
+        alt=""
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 312,
+          width: '100%',
+          objectFit: 'cover',
+          objectPosition: '50% 20%',
+          borderRadius: '0 0 28px 28px',
+          display: 'block',
+          zIndex: 0,
+          filter: warmthFilter(warmth),
+        }}
+      />
       <div
         style={{
-          padding: '100px 22px 0',
-          height: '100%',
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          height: 312,
+          borderRadius: '0 0 28px 28px',
+          background: warmthOverlay(warmth),
+          pointerEvents: 'none',
+          zIndex: 0,
+        }}
+      />
+
+      <div
+        ref={threadRef}
+        className="fuibo-scroll"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: 0,
+          right: 0,
+          bottom: 0,
+          overflowY: 'auto',
+          zIndex: 1,
           display: 'flex',
           flexDirection: 'column',
-          boxSizing: 'border-box',
+          gap: 12,
+          paddingTop: 250,
+          paddingLeft: 18,
+          paddingRight: 18,
+          paddingBottom: 152,
+          WebkitMaskImage:
+            'linear-gradient(to bottom,transparent 122px,#000 312px)',
+          maskImage: 'linear-gradient(to bottom,transparent 122px,#000 312px)',
         }}
       >
-        <div style={{ display: 'flex', gap: 12, alignItems: 'flex-start' }}>
-          <YoshiAvatar image={image} warmth={warmth} />
-          <div style={{ flex: 1, minWidth: 0 }}>
-            <ChatBubble>
-              So I know what to bring up — what are you into?
-            </ChatBubble>
-            <p
-              style={{
-                margin: '10px 4px 0',
-                fontSize: 14,
-                lineHeight: 1.4,
-                color: MUTED,
-              }}
-            >
-              Don’t overthink it — I’ll learn more as we talk.
-            </p>
-          </div>
+        <div aria-hidden style={{ marginTop: 'auto' }} />
+        <div
+          style={{
+            maxWidth: '80%',
+            alignSelf: 'flex-start',
+            background: '#FFFFFF',
+            borderRadius: 18,
+            padding: '14px 16px',
+            fontSize: 15,
+            lineHeight: 1.5,
+            color: '#2A2620',
+            boxShadow: '0 2px 8px rgba(26,24,20,.06)',
+          }}
+        >
+          {yoshiName}, I like that — I was hoping you’d pick me!
+        </div>
+        <div
+          style={{
+            maxWidth: '80%',
+            alignSelf: 'flex-start',
+            background: '#FFFFFF',
+            borderRadius: 18,
+            padding: '14px 16px',
+            fontSize: 15,
+            lineHeight: 1.5,
+            color: '#2A2620',
+            boxShadow: '0 2px 8px rgba(26,24,20,.06)',
+          }}
+        >
+          It’s good to finally meet you, {userName}.
+        </div>
+        <img
+          src={MEET_GIF_SRC}
+          alt="Rick Astley dancing"
+          style={{
+            width: 142,
+            maxWidth: '80%',
+            alignSelf: 'flex-start',
+            borderRadius: 18,
+            display: 'block',
+          }}
+        />
+        <div
+          style={{
+            maxWidth: '80%',
+            alignSelf: 'flex-start',
+            background: '#FFFFFF',
+            borderRadius: 18,
+            padding: '14px 16px',
+            fontSize: 15,
+            lineHeight: 1.5,
+            color: '#2A2620',
+            boxShadow: '0 2px 8px rgba(26,24,20,.06)',
+            animation: 'fuiboMsgIn .28s ease',
+          }}
+        >
+          Help me understand what you like better:
         </div>
 
         <div
           style={{
-            marginTop: 22,
+            alignSelf: 'flex-start',
+            maxWidth: '88%',
             display: 'flex',
             flexWrap: 'wrap',
             gap: 10,
-            overflow: 'auto',
-            paddingBottom: 12,
+            animation: 'fuiboMsgIn .28s ease',
           }}
         >
           {HOBBIES.map((item) => {
@@ -1081,17 +1232,18 @@ function HobbiesChatStep({
                   padding: '0 16px',
                   borderRadius: 999,
                   border: on
-                    ? `1.5px solid ${INK}`
-                    : '1px solid rgba(26,39,86,0.1)',
-                  background: on ? 'rgba(26,39,86,0.06)' : '#fff',
-                  color: INK,
+                    ? '1.5px solid rgba(30,58,50,.28)'
+                    : '1px solid rgba(26,24,20,0.08)',
+                  background: on ? '#CFE9DE' : '#fff',
+                  color: '#2A2620',
                   fontSize: 15,
-                  fontWeight: 500,
+                  fontWeight: 400,
+                  lineHeight: 1.5,
                   fontFamily: 'inherit',
                   cursor: 'pointer',
-                  boxShadow: on
-                    ? '0 4px 14px rgba(26,39,86,0.1)'
-                    : '0 2px 8px rgba(26,39,86,0.04)',
+                  boxShadow: 'none',
+                  transition:
+                    'background .2s ease, border-color .2s ease, color .2s ease',
                 }}
               >
                 {item.label}
@@ -1099,29 +1251,71 @@ function HobbiesChatStep({
             )
           })}
         </div>
+      </div>
 
-        <div style={{ marginTop: 'auto', marginBottom: ACTION_BOTTOM }}>
-          <button
-            type="button"
-            onClick={onNext}
-            disabled={!ready}
-            style={{
-              width: '100%',
-              height: 56,
-              borderRadius: 999,
-              border: 'none',
-              background: ready ? INK : 'rgba(26,39,86,0.12)',
-              color: ready ? '#fff' : MUTED,
-              fontSize: 17,
-              fontWeight: 600,
-              fontFamily: 'inherit',
-              cursor: ready ? 'pointer' : 'default',
-              transition: 'background .2s ease, color .2s ease',
-            }}
-          >
-            {count} of 3
-          </button>
-        </div>
+      <button
+        type="button"
+        onClick={onBack}
+        aria-label="Back"
+        style={{
+          position: 'absolute',
+          top: 54,
+          left: 16,
+          width: 36,
+          height: 36,
+          borderRadius: '50%',
+          border: 'none',
+          background: '#D9D7E2',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          zIndex: 12,
+          padding: 0,
+        }}
+      >
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+          <path
+            d="M9 3L5 7l4 4"
+            stroke="#fff"
+            strokeWidth="2.2"
+            strokeLinecap="round"
+            strokeLinejoin="round"
+          />
+        </svg>
+      </button>
+
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          zIndex: 15,
+          padding: `10px 16px ${ACTION_BOTTOM}px`,
+          background: '#EDECF2',
+        }}
+      >
+        <button
+          type="button"
+          onClick={onNext}
+          disabled={!ready}
+          style={{
+            width: '100%',
+            height: 56,
+            borderRadius: 999,
+            border: 'none',
+            background: ready ? INK : 'rgba(26,39,86,0.12)',
+            color: ready ? '#fff' : MUTED,
+            fontSize: 17,
+            fontWeight: 600,
+            fontFamily: 'inherit',
+            cursor: ready ? 'pointer' : 'default',
+            transition: 'background .2s ease, color .2s ease',
+          }}
+        >
+          {ready ? 'Continue' : `${count} of 3`}
+        </button>
       </div>
     </ScreenShell>
   )
@@ -1248,8 +1442,7 @@ function NotificationsStep({
             maxWidth: 300,
           }}
         >
-          A quiet ping when there’s a tip, a show nearby, or something that fits
-          what you’re into — from {yoshiName}, not spam.
+          Quiet pings for tips and shows you’ll like, from {yoshiName}.
         </p>
 
         <div
@@ -1391,6 +1584,53 @@ function NotificationsStep({
           </div>
         </div>
       )}
+    </ScreenShell>
+  )
+}
+
+function PreparingYoshiStep({ onDone }: { onDone: () => void }) {
+  const doneRef = useRef(onDone)
+  doneRef.current = onDone
+
+  useEffect(() => {
+    const t = window.setTimeout(() => doneRef.current(), 3000)
+    return () => window.clearTimeout(t)
+  }, [])
+
+  return (
+    <ScreenShell>
+      <div
+        style={{
+          height: '100%',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          padding: '0 40px',
+          boxSizing: 'border-box',
+          animation: 'fuiboSplashIn .45s ease both',
+        }}
+      >
+        <p
+          style={{
+            margin: 0,
+            maxWidth: 280,
+            textAlign: 'center',
+            fontSize: 22,
+            fontWeight: 600,
+            lineHeight: 1.4,
+            letterSpacing: '-0.02em',
+            background:
+              'linear-gradient(90deg, rgba(26,39,86,0.28) 0%, rgba(26,39,86,0.28) 35%, rgba(26,39,86,0.95) 50%, rgba(26,39,86,0.28) 65%, rgba(26,39,86,0.28) 100%)',
+            backgroundSize: '220% 100%',
+            WebkitBackgroundClip: 'text',
+            backgroundClip: 'text',
+            color: 'transparent',
+            animation: 'onboardingTextShimmer 2.1s ease-in-out infinite',
+          }}
+        >
+          Got it. Preparing the right Yoshi for you…
+        </p>
+      </div>
     </ScreenShell>
   )
 }
@@ -1676,9 +1916,9 @@ function warmthFilter(warmth: number) {
   const d = (t - 0.5) * 2
   const warm = Math.max(0, d)
   const cool = Math.max(0, -d)
-  const sepia = warm * 0.32
-  const saturate = 1 + warm * 0.22 - cool * 0.08
-  const hue = cool * 8 - warm * 12
+  const sepia = warm * 0.28
+  const saturate = 1 + warm * 0.18 - cool * 0.08
+  const hue = cool * 8 - warm * 10
   const bright = 1 + d * 0.04
   return `sepia(${sepia}) saturate(${saturate}) hue-rotate(${hue}deg) brightness(${bright})`
 }
@@ -1686,7 +1926,7 @@ function warmthFilter(warmth: number) {
 function warmthOverlay(warmth: number) {
   const t = Math.max(0, Math.min(100, warmth)) / 100
   const d = (t - 0.5) * 2
-  if (d >= 0) return `rgba(255, 150, 70, ${d * 0.34})`
+  if (d >= 0) return `rgba(255, 150, 70, ${d * 0.3})`
   return `rgba(90, 150, 255, ${Math.abs(d) * 0.14})`
 }
 
@@ -2604,11 +2844,13 @@ export function Onboarding({ onComplete }: Props) {
         relationshipTypes={relationshipTypes}
         index={relIndex}
         onIndexChange={setRelIndex}
-        onNext={() => setStep('meet')}
+        onNext={() => setStep('preparing')}
         onBack={goBack}
         progress={progress}
       />
     )
+  } else if (step === 'preparing') {
+    body = <PreparingYoshiStep onDone={() => setStep('meet')} />
   } else if (step === 'meet') {
     body = (
       <MeetStep
@@ -2643,12 +2885,13 @@ export function Onboarding({ onComplete }: Props) {
         warmth={meetSelection.warmth}
         onNext={() => setStep('hobbies')}
         onBack={goBack}
-        progress={progress}
       />
     )
   } else if (step === 'hobbies') {
     body = (
       <HobbiesChatStep
+        yoshiName={chosenYoshiName}
+        userName={userName.trim() || 'friend'}
         image={meetSelection.image}
         warmth={meetSelection.warmth}
         selected={hobbies}
@@ -2657,7 +2900,6 @@ export function Onboarding({ onComplete }: Props) {
           if (hobbies.length >= 3) setStep('notifications')
         }}
         onBack={goBack}
-        progress={progress}
       />
     )
   } else {

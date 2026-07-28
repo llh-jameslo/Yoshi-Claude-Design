@@ -80,6 +80,15 @@ body {
   }
 }
 
+@keyframes onboardingTextShimmer {
+  0% {
+    background-position: 120% 50%;
+  }
+  100% {
+    background-position: -120% 50%;
+  }
+}
+
 @keyframes yoshiShimmer {
   0% {
     background-position: 140% 0;

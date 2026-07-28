@@ -3,6 +3,7 @@ import {
   useLayoutEffect,
   useRef,
   useState,
+  type PointerEvent as ReactPointerEvent,
   type UIEvent,
 } from 'react'
 import { IOSDevice } from '../components/IOSDevice'
@@ -35,6 +36,107 @@ const INITIAL_THREAD: Msg[] = [
 
 const TITLE_TOP = 136
 const TITLE_TO_HERO_GAP = 15
+const DEFAULT_CHAT_BG_Y = 20
+const CHAT_BG_STORAGE_KEY = 'fuibo-chat-bg-y'
+
+function loadChatBgY(imageKey: string) {
+  try {
+    const raw = localStorage.getItem(CHAT_BG_STORAGE_KEY)
+    if (!raw) return DEFAULT_CHAT_BG_Y
+    const map = JSON.parse(raw) as Record<string, number>
+    const value = map[imageKey]
+    return typeof value === 'number'
+      ? Math.max(0, Math.min(100, value))
+      : DEFAULT_CHAT_BG_Y
+  } catch {
+    return DEFAULT_CHAT_BG_Y
+  }
+}
+
+function saveChatBgY(imageKey: string, value: number) {
+  try {
+    const raw = localStorage.getItem(CHAT_BG_STORAGE_KEY)
+    const map = raw ? (JSON.parse(raw) as Record<string, number>) : {}
+    map[imageKey] = Math.max(0, Math.min(100, value))
+    localStorage.setItem(CHAT_BG_STORAGE_KEY, JSON.stringify(map))
+  } catch {
+    // Prototype: ignore persistence failures
+  }
+}
+
+/** Sample top-right hero area; returns icon color for contrast. */
+function sampleChatControlColor(
+  src: string,
+  bgY: number,
+  viewW = 402,
+  viewH = 312,
+): Promise<'#FFFFFF' | '#17151C'> {
+  return new Promise((resolve) => {
+    const img = new Image()
+    img.decoding = 'async'
+    img.onload = () => {
+      try {
+        const canvas = document.createElement('canvas')
+        canvas.width = viewW
+        canvas.height = viewH
+        const ctx = canvas.getContext('2d', { willReadFrequently: true })
+        if (!ctx) {
+          resolve('#17151C')
+          return
+        }
+        const scale = Math.max(viewW / img.naturalWidth, viewH / img.naturalHeight)
+        const dw = img.naturalWidth * scale
+        const dh = img.naturalHeight * scale
+        const dx = (viewW - dw) * 0.5
+        const dy = (viewH - dh) * (Math.max(0, Math.min(100, bgY)) / 100)
+        ctx.drawImage(img, dx, dy, dw, dh)
+
+        const sampleX = Math.max(0, viewW - 20 - 52)
+        const sampleY = 64
+        const sampleW = 52
+        const sampleH = 52
+        const { data } = ctx.getImageData(sampleX, sampleY, sampleW, sampleH)
+        let total = 0
+        let count = 0
+        for (let i = 0; i < data.length; i += 16) {
+          const r = data[i]
+          const g = data[i + 1]
+          const b = data[i + 2]
+          const a = data[i + 3]
+          if (a < 20) continue
+          // Relative luminance
+          total += 0.2126 * r + 0.7152 * g + 0.0722 * b
+          count += 1
+        }
+        const avg = count ? total / count : 180
+        resolve(avg < 150 ? '#FFFFFF' : '#17151C')
+      } catch {
+        resolve('#17151C')
+      }
+    }
+    img.onerror = () => resolve('#17151C')
+    img.src = src
+  })
+}
+
+function PencilIcon({ color = '#17151C' }: { color?: string }) {
+  return (
+    <svg width="18" height="18" viewBox="0 0 18 18" fill="none" aria-hidden>
+      <path
+        d="M12.4 2.9a1.5 1.5 0 012.1 2.1L6.2 13.3 3 14.9l1.6-3.2L12.4 2.9z"
+        stroke={color}
+        strokeWidth="1.7"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M10.9 4.4l2.7 2.7"
+        stroke={color}
+        strokeWidth="1.7"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
 
 function ChatBubbleIcon() {
   return (
@@ -140,19 +242,46 @@ export function FuiboFlower({
   const [attach, setAttach] = useState(false)
   const [thread, setThread] = useState<Msg[]>(INITIAL_THREAD)
   const [draft, setDraft] = useState('')
+  const [chatBgY, setChatBgY] = useState(DEFAULT_CHAT_BG_Y)
+  const [bgEditing, setBgEditing] = useState(false)
+  const [chatControlColor, setChatControlColor] = useState<'#FFFFFF' | '#17151C'>(
+    '#17151C',
+  )
 
   const threadRef = useRef<HTMLDivElement>(null)
   const titleBlockRef = useRef<HTMLDivElement>(null)
   const dragMoved = useRef(false)
   const sbTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const bgDrag = useRef<{ startClientY: number; startY: number } | null>(null)
   // Default assumes two title lines; one-liners pull the image up once measured
   const [heroTop, setHeroTop] = useState(TITLE_TOP + 48 * 1.2 * 2 + TITLE_TO_HERO_GAP)
 
-  const kbVisible = kb && !open
+  const kbVisible = kb && !open && !bgEditing
   const badge = !seen && !open
   const composerPb = kb ? 10 : 34
   const attachBottom = kb ? 72 : 96
   const threadPb = kb ? 100 : 124
+  const chatBgKey = yoshi.image
+
+  useEffect(() => {
+    setChatBgY(loadChatBgY(chatBgKey))
+    setBgEditing(false)
+    bgDrag.current = null
+  }, [chatBgKey])
+
+  useEffect(() => {
+    if (screen !== 'chat') return
+    let cancelled = false
+    const timer = window.setTimeout(() => {
+      void sampleChatControlColor(yoshi.image, chatBgY).then((color) => {
+        if (!cancelled) setChatControlColor(color)
+      })
+    }, bgEditing ? 60 : 0)
+    return () => {
+      cancelled = true
+      window.clearTimeout(timer)
+    }
+  }, [screen, yoshi.image, chatBgY, bgEditing])
 
   useLayoutEffect(() => {
     const el = titleBlockRef.current
@@ -218,6 +347,37 @@ export function FuiboFlower({
 
   const onThreadScroll = (e: UIEvent<HTMLDivElement>) => {
     flashScrollbar(e.currentTarget)
+  }
+
+  const beginBgEdit = () => {
+    setBgEditing(true)
+    setKb(false)
+    setAttach(false)
+    setOpen(false)
+  }
+
+  const saveBgEdit = () => {
+    saveChatBgY(chatBgKey, chatBgY)
+    setBgEditing(false)
+    bgDrag.current = null
+  }
+
+  const onBgPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!bgEditing) return
+    e.currentTarget.setPointerCapture(e.pointerId)
+    bgDrag.current = { startClientY: e.clientY, startY: chatBgY }
+  }
+
+  const onBgPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!bgEditing || !bgDrag.current) return
+    const dy = e.clientY - bgDrag.current.startClientY
+    // Drag image down -> show higher part of photo (lower object-position Y)
+    const next = bgDrag.current.startY - (dy / 220) * 100
+    setChatBgY(Math.max(0, Math.min(100, next)))
+  }
+
+  const onBgPointerUp = () => {
+    bgDrag.current = null
   }
 
   const drawer = open ? (
@@ -340,8 +500,14 @@ export function FuiboFlower({
             lineHeight: 1.2,
             letterSpacing: '-.02em',
             color: '#17151C',
-            // Narrow enough that "Fuibo Flower" wraps; "Lady God" / "Dad" stay one line
+            // Leave room for the switch control; wrap long names to 2 lines
             paddingRight: 90,
+            overflowWrap: 'anywhere',
+            wordBreak: 'break-word',
+            display: '-webkit-box',
+            WebkitBoxOrient: 'vertical',
+            WebkitLineClamp: 2,
+            overflow: 'hidden',
           }}
         >
           {yoshi.name}
@@ -507,13 +673,35 @@ export function FuiboFlower({
           height: 312,
           width: '100%',
           objectFit: 'cover',
-          objectPosition: '50% 20%',
+          objectPosition: `50% ${chatBgY}%`,
           borderRadius: '0 0 28px 28px',
           display: 'block',
           zIndex: 0,
         }}
         alt={yoshi.name}
       />
+
+      {bgEditing && (
+        <div
+          onPointerDown={onBgPointerDown}
+          onPointerMove={onBgPointerMove}
+          onPointerUp={onBgPointerUp}
+          onPointerCancel={onBgPointerUp}
+          style={{
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            right: 0,
+            height: 312,
+            zIndex: 8,
+            borderRadius: '0 0 28px 28px',
+            cursor: 'ns-resize',
+            touchAction: 'none',
+            background:
+              'linear-gradient(to bottom, rgba(255,255,255,0.08), rgba(20,17,26,0.18))',
+          }}
+        />
+      )}
 
       <div
         ref={threadRef}
@@ -528,7 +716,8 @@ export function FuiboFlower({
           left: 0,
           right: 0,
           bottom: 0,
-          overflowY: 'auto',
+          overflowY: bgEditing ? 'hidden' : 'auto',
+          pointerEvents: bgEditing ? 'none' : 'auto',
           zIndex: 1,
           display: 'flex',
           flexDirection: 'column',
@@ -630,6 +819,11 @@ export function FuiboFlower({
 
       <div
         onClick={() => {
+          if (bgEditing) {
+            setChatBgY(loadChatBgY(chatBgKey))
+            setBgEditing(false)
+            bgDrag.current = null
+          }
           setScreen('home')
           setOpen(false)
           setKb(false)
@@ -649,9 +843,54 @@ export function FuiboFlower({
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 12,
+          opacity: bgEditing ? 0.45 : 1,
+          transition: 'opacity .2s ease',
         }}
       >
         <BackArrow />
+      </div>
+
+      <div
+        onClick={() => {
+          if (bgEditing) saveBgEdit()
+          else beginBgEdit()
+        }}
+        aria-label={bgEditing ? 'Save background' : 'Edit background'}
+        style={{
+          position: 'absolute',
+          top: 64,
+          right: 20,
+          width: 52,
+          height: 52,
+          borderRadius: '50%',
+          background: 'transparent',
+          border: 'none',
+          boxShadow: 'none',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          cursor: 'pointer',
+          zIndex: 12,
+        }}
+      >
+        {bgEditing ? (
+          <span
+            style={{
+              fontSize: 13,
+              fontWeight: 700,
+              color: chatControlColor,
+              letterSpacing: 0.2,
+              textShadow:
+                chatControlColor === '#FFFFFF'
+                  ? '0 1px 2px rgba(0,0,0,.35)'
+                  : '0 1px 2px rgba(255,255,255,.35)',
+            }}
+          >
+            Save
+          </span>
+        ) : (
+          <PencilIcon color={chatControlColor} />
+        )}
       </div>
 
       <div
@@ -662,7 +901,9 @@ export function FuiboFlower({
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 30,
-          cursor: 'pointer',
+          cursor: bgEditing ? 'default' : 'pointer',
+          pointerEvents: bgEditing ? 'none' : 'auto',
+          opacity: bgEditing ? 0.45 : 1,
         }}
       >
         <div
@@ -816,6 +1057,8 @@ export function FuiboFlower({
           gap: 10,
           padding: `10px 16px ${composerPb}px`,
           background: '#EDECF2',
+          pointerEvents: bgEditing ? 'none' : 'auto',
+          opacity: bgEditing ? 0.4 : 1,
         }}
       >
         <div
