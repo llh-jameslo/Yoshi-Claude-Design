@@ -87,7 +87,7 @@ const RELATIONSHIP_TYPES = [
     title: 'Friend',
     subtitle: 'Someone to talk to at 3 am',
     image: '/assets/onboarding/type-friend.png',
-    bubbles: ['wait, what happened next?', 'what made you laugh today?'],
+    bubbles: ['wait, tell me the whole story', 'what made you laugh today?'],
   },
   {
     id: 'parent',
@@ -164,8 +164,8 @@ function NextButton({
         height: 72,
         borderRadius: '50%',
         border: 'none',
-        background: '#FFFFFF',
-        boxShadow: '0 10px 28px rgba(26, 39, 86, 0.14)',
+        background: ACCENT,
+        boxShadow: '0 12px 28px rgba(192,90,60,0.35)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
@@ -177,7 +177,7 @@ function NextButton({
       <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
         <path
           d="M8 4l7 7-7 7"
-          stroke={INK}
+          stroke="#fff"
           strokeWidth="2.4"
           strokeLinecap="round"
           strokeLinejoin="round"
@@ -458,7 +458,7 @@ function WelcomeStep({
             fontSize: 36,
             fontWeight: 600,
             letterSpacing: '-0.03em',
-            lineHeight: 1.5,
+            lineHeight: 1.25,
             color: '#fff',
             textAlign: 'left',
             textShadow: '0 2px 24px rgba(0,0,0,0.35)',
@@ -1305,13 +1305,14 @@ function HobbiesChatStep({
             height: 56,
             borderRadius: 999,
             border: 'none',
-            background: ready ? INK : 'rgba(26,39,86,0.12)',
-            color: ready ? '#fff' : MUTED,
+            background: ready ? ACCENT : 'rgba(192,90,60,0.16)',
+            color: ready ? '#fff' : 'rgba(192,90,60,0.55)',
             fontSize: 17,
             fontWeight: 600,
             fontFamily: 'inherit',
             cursor: ready ? 'pointer' : 'default',
-            transition: 'background .2s ease, color .2s ease',
+            boxShadow: ready ? '0 12px 28px rgba(192,90,60,0.35)' : 'none',
+            transition: 'background .2s ease, color .2s ease, box-shadow .2s ease',
           }}
         >
           {ready ? 'Continue' : `${count} of 3`}
@@ -1786,6 +1787,7 @@ function RelationshipStep({
                     overflow: 'hidden',
                     position: 'relative',
                     background: '#111',
+                    boxShadow: '0 10px 24px rgba(26,39,86,0.14)',
                     transform: `scale(${scale}) rotateY(${rotateY}deg)`,
                     opacity,
                     transformOrigin: 'center center',
@@ -2606,11 +2608,11 @@ function MeetStep({
               height: 58,
               borderRadius: 999,
               border: 'none',
-              background: '#fff',
-              boxShadow: '0 10px 28px rgba(26,39,86,0.12)',
+              background: ACCENT,
+              boxShadow: '0 12px 28px rgba(192,90,60,0.35)',
               fontSize: 17,
               fontWeight: 600,
-              color: holdProgress > 0.45 ? '#fff' : INK,
+              color: '#fff',
               cursor: 'pointer',
               fontFamily: 'inherit',
               position: 'relative',
@@ -2628,7 +2630,7 @@ function MeetStep({
                 top: 0,
                 bottom: 0,
                 width: `${Math.round(holdProgress * 1000) / 10}%`,
-                background: INK,
+                background: 'rgba(0,0,0,0.18)',
                 borderRadius: 999,
               }}
             />
@@ -2779,14 +2781,24 @@ export function Onboarding({ onComplete }: Props) {
   }, [relIndex, relationshipTypes.length])
 
   const landOnHome = (name = userName.trim()) => {
-    // Prototype: home shell stays Fuibo Flower; portrait/name follow onboarding picks
-    const fuibo = getYoshi(DEFAULT_YOSHI_ID)
+    // Chosen relationship type owns which Switch Yoshi slot gets the meet image/name
     onComplete({
       userName: name,
-      yoshiId: fuibo.id,
+      yoshiId: relationship.yoshiId,
       yoshiName: chosenYoshiName,
       yoshiImage: meetSelection.image,
       relationshipId: relationship.id,
+    })
+  }
+
+  const skipToHome = () => {
+    const fuibo = getYoshi(DEFAULT_YOSHI_ID)
+    onComplete({
+      userName: '',
+      yoshiId: fuibo.id,
+      yoshiName: fuibo.name,
+      yoshiImage: fuibo.image,
+      relationshipId: 'friend',
     })
   }
 
@@ -2809,7 +2821,7 @@ export function Onboarding({ onComplete }: Props) {
     body = (
       <WelcomeStep
         onContinue={() => setStep('name')}
-        onSkipToHome={() => landOnHome()}
+        onSkipToHome={skipToHome}
       />
     )
   } else if (step === 'name') {

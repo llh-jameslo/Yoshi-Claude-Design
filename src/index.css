@@ -182,6 +182,21 @@ body {
   background: transparent !important;
 }
 
+/* Topic carousel — never show scrollbars in the app shell */
+.topic-rail,
+.topic-rail.is-scrolling {
+  scrollbar-width: none !important;
+  -ms-overflow-style: none !important;
+}
+
+.topic-rail::-webkit-scrollbar,
+.topic-rail.is-scrolling::-webkit-scrollbar {
+  width: 0 !important;
+  height: 0 !important;
+  display: none !important;
+  background: transparent !important;
+}
+
 /* Hidden by default (topic carousel, wheels). Chat flashes via .is-scrolling. */
 .fuibo-scroll {
   scrollbar-width: none;

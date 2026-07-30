@@ -4,20 +4,42 @@ import { orderedYoshis, type Yoshi } from './yoshis'
 const CARD_W = 300
 const GAP = 28
 const STRIDE = CARD_W + GAP
-/** Match “Switch Yoshi” title inset (left: 24) on both ends */
+/** Match “Switch Yoshi” title inset (left: 24) */
 const SIDE_PAD = 24
+
+type CustomYoshi = {
+  id: string
+  name?: string
+  image?: string
+}
 
 type Props = {
   selectedId: string
   onBack: () => void
   onSelect: (id: string) => void
+  /** Onboarding pick: overrides image/name for that Yoshi slot only */
+  customYoshi?: CustomYoshi
 }
 
-export function SwitchYoshi({ selectedId, onBack, onSelect }: Props) {
+export function SwitchYoshi({
+  selectedId,
+  onBack,
+  onSelect,
+  customYoshi,
+}: Props) {
   const railRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; left: number } | null>(null)
   const dragMoved = useRef(false)
-  const list = useMemo(() => orderedYoshis(selectedId), [selectedId])
+  const list = useMemo(() => {
+    return orderedYoshis(selectedId).map((y) => {
+      if (!customYoshi || y.id !== customYoshi.id) return y
+      return {
+        ...y,
+        name: customYoshi.name?.trim() || y.name,
+        image: customYoshi.image || y.image,
+      }
+    })
+  }, [selectedId, customYoshi])
 
   useEffect(() => {
     const el = railRef.current
@@ -139,7 +161,7 @@ export function SwitchYoshi({ selectedId, onBack, onSelect }: Props) {
 
       <div
         ref={railRef}
-        className="fuibo-scroll"
+        className="fuibo-scroll topic-rail"
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
@@ -154,9 +176,11 @@ export function SwitchYoshi({ selectedId, onBack, onSelect }: Props) {
           overflowX: 'auto',
           overflowY: 'hidden',
           gap: GAP,
-          padding: `0 ${SIDE_PAD}px`,
+          padding: `0 calc((100% - ${CARD_W}px) / 2) 0 ${SIDE_PAD}px`,
           cursor: 'grab',
           userSelect: 'none',
+          scrollbarWidth: 'none',
+          msOverflowStyle: 'none',
         }}
       >
         {list.map((y) => (

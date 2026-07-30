@@ -1,6 +1,7 @@
 import {
   useEffect,
   useLayoutEffect,
+  useMemo,
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
@@ -64,7 +65,7 @@ function saveChatBgY(imageKey: string, value: number) {
   }
 }
 
-/** Sample top-right hero area; returns icon color for contrast. */
+/** Sample top hero control areas; returns one shared icon color for contrast. */
 function sampleChatControlColor(
   src: string,
   bgY: number,
@@ -91,22 +92,27 @@ function sampleChatControlColor(
         const dy = (viewH - dh) * (Math.max(0, Math.min(100, bgY)) / 100)
         ctx.drawImage(img, dx, dy, dw, dh)
 
-        const sampleX = Math.max(0, viewW - 20 - 52)
         const sampleY = 64
         const sampleW = 52
         const sampleH = 52
-        const { data } = ctx.getImageData(sampleX, sampleY, sampleW, sampleH)
+        const regions = [
+          ctx.getImageData(20, sampleY, sampleW, sampleH).data,
+          ctx.getImageData(Math.max(0, viewW - 20 - 52), sampleY, sampleW, sampleH)
+            .data,
+        ]
+
         let total = 0
         let count = 0
-        for (let i = 0; i < data.length; i += 16) {
-          const r = data[i]
-          const g = data[i + 1]
-          const b = data[i + 2]
-          const a = data[i + 3]
-          if (a < 20) continue
-          // Relative luminance
-          total += 0.2126 * r + 0.7152 * g + 0.0722 * b
-          count += 1
+        for (const data of regions) {
+          for (let i = 0; i < data.length; i += 16) {
+            const r = data[i]
+            const g = data[i + 1]
+            const b = data[i + 2]
+            const a = data[i + 3]
+            if (a < 20) continue
+            total += 0.2126 * r + 0.7152 * g + 0.0722 * b
+            count += 1
+          }
         }
         const avg = count ? total / count : 180
         resolve(avg < 150 ? '#FFFFFF' : '#17151C')
@@ -181,14 +187,14 @@ function Chevron({ open }: { open: boolean }) {
   )
 }
 
-function BackArrow() {
+function BackArrow({ color = '#17151C' }: { color?: string }) {
   return (
     <div
       style={{
         position: 'relative',
         width: 19,
         height: 2.5,
-        background: '#17151C',
+        background: color,
         borderRadius: 2,
       }}
     >
@@ -199,8 +205,8 @@ function BackArrow() {
           top: '50%',
           width: 9,
           height: 9,
-          borderLeft: '2.5px solid #17151C',
-          borderBottom: '2.5px solid #17151C',
+          borderLeft: `2.5px solid ${color}`,
+          borderBottom: `2.5px solid ${color}`,
           transform: 'translateY(-50%) rotate(45deg)',
         }}
       />
@@ -227,12 +233,26 @@ export function FuiboFlower({
   const [screen, setScreen] = useState<'home' | 'chat' | 'game' | 'switch'>('home')
   const [yoshiId, setYoshiId] = useState(initialYoshiId)
   const baseYoshi = getYoshi(yoshiId)
+  const customYoshi = useMemo(() => {
+    if (!nameOverride && !imageOverride) return undefined
+    const base = getYoshi(initialYoshiId)
+    const name = nameOverride?.trim()
+    const image = imageOverride
+    const nameCustom = Boolean(name && name !== base.name)
+    const imageCustom = Boolean(image && image !== base.image)
+    if (!nameCustom && !imageCustom) return undefined
+    return {
+      id: initialYoshiId,
+      name: nameCustom ? name : undefined,
+      image: imageCustom ? image : undefined,
+    }
+  }, [initialYoshiId, nameOverride, imageOverride])
   const yoshi =
-    yoshiId === initialYoshiId && (nameOverride || imageOverride)
+    customYoshi && yoshiId === customYoshi.id
       ? {
           ...baseYoshi,
-          name: nameOverride ?? baseYoshi.name,
-          image: imageOverride ?? baseYoshi.image,
+          name: customYoshi.name?.trim() || baseYoshi.name,
+          image: customYoshi.image || baseYoshi.image,
         }
       : baseYoshi
   const [open, setOpen] = useState(false)
@@ -731,6 +751,7 @@ export function FuiboFlower({
           maskImage: 'linear-gradient(to bottom,transparent 122px,#000 312px)',
         }}
       >
+        <div aria-hidden style={{ marginTop: 'auto' }} />
         {thread.map((m, i) => {
           if (m.type === 'them') {
             return (
@@ -817,7 +838,8 @@ export function FuiboFlower({
         })}
       </div>
 
-      <div
+      <button
+        type="button"
         onClick={() => {
           if (bgEditing) {
             setChatBgY(loadChatBgY(chatBgKey))
@@ -829,6 +851,7 @@ export function FuiboFlower({
           setKb(false)
           setAttach(false)
         }}
+        aria-label="Back"
         style={{
           position: 'absolute',
           top: 64,
@@ -836,19 +859,21 @@ export function FuiboFlower({
           width: 52,
           height: 52,
           borderRadius: '50%',
-          background: '#FFFFFF',
-          boxShadow: '0 4px 14px rgba(26,24,20,.18)',
+          border: 'none',
+          background: 'transparent',
+          boxShadow: 'none',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
           cursor: 'pointer',
           zIndex: 12,
+          padding: 0,
           opacity: bgEditing ? 0.45 : 1,
           transition: 'opacity .2s ease',
         }}
       >
-        <BackArrow />
-      </div>
+        <BackArrow color={chatControlColor} />
+      </button>
 
       <div
         onClick={() => {
@@ -911,8 +936,8 @@ export function FuiboFlower({
             width: 52,
             height: 52,
             borderRadius: '50%',
-            background: '#FFFFFF',
-            boxShadow: '0 4px 14px rgba(26,24,20,.18)',
+            background: 'rgba(255,255,255,0.62)',
+            boxShadow: '0 4px 14px rgba(26,24,20,.12)',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
@@ -1187,6 +1212,7 @@ export function FuiboFlower({
   const switchScreen = (
     <SwitchYoshi
       selectedId={yoshiId}
+      customYoshi={customYoshi}
       onBack={() => setScreen('home')}
       onSelect={(id) => {
         setYoshiId(id)

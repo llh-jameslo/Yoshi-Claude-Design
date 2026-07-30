@@ -92,7 +92,7 @@ export function TopicDrawer({
     >
       <div
         ref={railRef}
-        className="fuibo-scroll"
+        className="fuibo-scroll topic-rail"
         onScroll={onScroll}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
@@ -101,6 +101,7 @@ export function TopicDrawer({
         style={{
           display: 'flex',
           overflowX: 'auto',
+          overflowY: 'hidden',
           gap: 14,
           padding: '6px calc(50% - 158px) 14px',
           cursor: 'grab',
