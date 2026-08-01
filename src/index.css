@@ -17,6 +17,20 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
+@media (max-width: 520px) {
+  html,
+  body,
+  #root {
+    height: 100%;
+    min-height: 100dvh;
+    overflow: hidden;
+  }
+
+  body {
+    background: #000;
+  }
+}
+
 @keyframes fuiboDropIn {
   from {
     opacity: 0;
