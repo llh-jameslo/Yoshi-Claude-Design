@@ -60,7 +60,7 @@ export function IOSDevice({
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           {children}
         </div>
-        {keyboard && <IOSKeyboard dark={dark} />}
+        {keyboard && !compact && <IOSKeyboard dark={dark} />}
       </div>
       {!compact && (
         <div
