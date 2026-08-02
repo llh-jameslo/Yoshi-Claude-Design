@@ -193,7 +193,8 @@ export function SwitchYoshi({
         onMouseLeave={onMouseUp}
         style={{
           position: 'absolute',
-          top: compact ? 'calc(var(--nav-top, 64px) + 198px)' : 262,
+          // Desktop: a bit more air under the title than the original 262
+          top: compact ? 'calc(var(--nav-top, 64px) + 198px)' : 284,
           left: 0,
           right: 0,
           bottom: 34,
