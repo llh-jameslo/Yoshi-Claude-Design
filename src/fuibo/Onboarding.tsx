@@ -3,12 +3,15 @@ import {
   useRef,
   useState,
   type CSSProperties,
-  type MouseEvent,
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
   type UIEvent,
 } from 'react'
 import { IOSDevice } from '../components/IOSDevice'
+import {
+  useKeyboardInset,
+  useScrollLock,
+} from '../hooks/useKeyboardInset'
 import { DEFAULT_YOSHI_ID, getYoshi } from './yoshis'
 
 export type OnboardingResult = {
@@ -49,15 +52,15 @@ const FLOW_STEPS: Step[] = [
 ]
 
 const BG: CSSProperties = {
-  background: 'linear-gradient(180deg, #E9E6F8 0%, #F3F1F8 42%, #FAFAFC 100%)',
+  // Keep lavender through the full height — avoid washing out to plain white mid-screen.
+  background: 'linear-gradient(180deg, #E9E6F8 0%, #EEEBF8 48%, #F2F0F8 100%)',
+  backgroundColor: '#F2F0F8',
 }
 
 const INK = '#1A2756'
 const MUTED = 'rgba(26, 39, 86, 0.55)'
 /** Extra air when screen titles wrap to 2+ lines */
 const TITLE_LH = 1.45
-const ACTION_BOTTOM = 48
-
 function flowProgress(step: Step) {
   const i = FLOW_STEPS.indexOf(step)
   if (i < 0) return 0
@@ -146,6 +149,64 @@ const REL_CARD_W = 320
 const REL_GAP = 0
 const REL_STRIDE = REL_CARD_W + REL_GAP
 
+/** Keeps the primary action above the system keyboard; locks scroll while focused. */
+function KeyboardDockedAction({
+  children,
+  active = false,
+  /** When false, sit under the input instead of pinning to the screen bottom. */
+  pinBottom = true,
+}: {
+  children: ReactNode
+  /** Input focused — freeze scroll so the docked CTA cannot drift. */
+  active?: boolean
+  pinBottom?: boolean
+}) {
+  const keyboardInset = useKeyboardInset()
+  const kbOpen = keyboardInset > 0
+  useScrollLock(active || kbOpen)
+
+  return (
+    <div
+      style={{
+        marginTop: pinBottom ? 'auto' : 0,
+        marginBottom: kbOpen
+          ? 0
+          : pinBottom
+            ? 'calc(var(--action-bottom, 48px) + var(--safe-bottom, 0px))'
+            : 'calc(var(--action-bottom, 24px) + var(--safe-bottom, 0px))',
+        height: kbOpen ? 72 : undefined,
+        flex: 'none',
+        flexShrink: 0,
+        display: 'flex',
+        justifyContent: 'center',
+      }}
+    >
+      <div
+        data-allow-touch
+        style={
+          kbOpen
+            ? {
+                position: 'fixed',
+                left: 0,
+                right: 0,
+                bottom: 12 + keyboardInset,
+                display: 'flex',
+                justifyContent: 'center',
+                zIndex: 80,
+                pointerEvents: 'none',
+              }
+            : {
+                display: 'flex',
+                justifyContent: 'center',
+              }
+        }
+      >
+        <div style={{ pointerEvents: 'auto' }}>{children}</div>
+      </div>
+    </div>
+  )
+}
+
 function NextButton({
   onClick,
   disabled,
@@ -203,7 +264,7 @@ function OnboardingHeader({
     <div
       style={{
         position: 'absolute',
-        top: 54,
+        top: 'var(--chrome-top, 54px)',
         left: 0,
         right: 0,
         height: 36,
@@ -445,7 +506,7 @@ function WelcomeStep({
           position: 'absolute',
           left: 28,
           right: 28,
-          bottom: 52,
+          bottom: 'calc(var(--action-bottom, 48px) + 4px + var(--safe-bottom, 0px))',
           display: 'flex',
           flexDirection: 'column',
           gap: 12,
@@ -504,16 +565,20 @@ function NameStep({
   onBack: () => void
   progress: number
 }) {
+  const [focused, setFocused] = useState(true)
+
   return (
     <ScreenShell onBack={onBack} progress={progress}>
       <div
         style={{
-          padding: '120px 32px 0',
+          padding: 'var(--flow-pad-top, 120px) 32px 0',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
           alignItems: 'center',
           boxSizing: 'border-box',
+          overflow: 'hidden',
+          touchAction: focused ? 'none' : undefined,
         }}
       >
         <h1
@@ -533,6 +598,8 @@ function NameStep({
           autoFocus
           value={value}
           onChange={(e) => onChange(e.target.value)}
+          onFocus={() => setFocused(true)}
+          onBlur={() => setFocused(false)}
           onKeyDown={(e) => {
             if (e.key === 'Enter' && value.trim()) onNext()
           }}
@@ -541,6 +608,8 @@ function NameStep({
             marginTop: 40,
             width: '100%',
             height: 58,
+            minHeight: 58,
+            flexShrink: 0,
             borderRadius: 999,
             border: '1px solid rgba(26,39,86,0.08)',
             background: '#fff',
@@ -555,16 +624,9 @@ function NameStep({
             textAlign: 'center',
           }}
         />
-        <div
-          style={{
-            marginTop: 'auto',
-            marginBottom: ACTION_BOTTOM,
-            display: 'flex',
-            justifyContent: 'center',
-          }}
-        >
+        <KeyboardDockedAction active={focused}>
           <NextButton onClick={onNext} disabled={!value.trim()} />
-        </div>
+        </KeyboardDockedAction>
       </div>
     </ScreenShell>
   )
@@ -776,7 +838,7 @@ function BirthdayStep({
         <h1
           style={{
             margin: '0 0 18px',
-            padding: '110px 24px 0',
+            padding: 'var(--flow-pad-top, 110px) 24px 0',
             fontSize: 28,
             fontWeight: 600,
             letterSpacing: '-0.02em',
@@ -853,7 +915,7 @@ function BirthdayStep({
             position: 'absolute',
             left: 0,
             right: 0,
-            bottom: ACTION_BOTTOM,
+            bottom: 'calc(var(--action-bottom, 48px) + var(--safe-bottom, 0px))',
             display: 'flex',
             justifyContent: 'center',
           }}
@@ -903,7 +965,7 @@ function MeetChatStep({
   }, [visible])
 
   return (
-    <ScreenShell style={{ background: '#EDECF2' }}>
+    <ScreenShell>
       <img
         src={image}
         alt={yoshiName}
@@ -1018,7 +1080,7 @@ function MeetChatStep({
         aria-label="Back"
         style={{
           position: 'absolute',
-          top: 54,
+          top: 'var(--chrome-top, 54px)',
           left: 16,
           width: 36,
           height: 36,
@@ -1053,8 +1115,10 @@ function MeetChatStep({
           zIndex: 15,
           display: 'flex',
           justifyContent: 'center',
-          padding: `10px 16px ${ACTION_BOTTOM}px`,
-          background: '#EDECF2',
+          padding:
+            '10px 16px calc(var(--action-bottom, 48px) + var(--safe-bottom, 0px))',
+          background:
+            'linear-gradient(180deg, rgba(242,240,248,0) 0%, #F2F0F8 40%)',
         }}
       >
         <NextButton onClick={onNext} disabled={visible < 3} />
@@ -1095,7 +1159,7 @@ function HobbiesChatStep({
   }, [])
 
   return (
-    <ScreenShell style={{ background: '#EDECF2' }}>
+    <ScreenShell>
       <img
         src={image}
         alt=""
@@ -1259,7 +1323,7 @@ function HobbiesChatStep({
         aria-label="Back"
         style={{
           position: 'absolute',
-          top: 54,
+          top: 'var(--chrome-top, 54px)',
           left: 16,
           width: 36,
           height: 36,
@@ -1292,8 +1356,10 @@ function HobbiesChatStep({
           right: 0,
           bottom: 0,
           zIndex: 15,
-          padding: `10px 16px ${ACTION_BOTTOM}px`,
-          background: '#EDECF2',
+          padding:
+            '10px 16px calc(var(--action-bottom, 48px) + var(--safe-bottom, 0px))',
+          background:
+            'linear-gradient(180deg, rgba(242,240,248,0) 0%, #F2F0F8 40%)',
         }}
       >
         <button
@@ -1345,7 +1411,7 @@ function NotificationsStep({
     <ScreenShell onBack={onBack} progress={progress}>
       <div
         style={{
-          padding: '110px 28px 0',
+          padding: 'var(--flow-pad-top, 110px) 28px 0',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -1449,7 +1515,8 @@ function NotificationsStep({
         <div
           style={{
             marginTop: 'auto',
-            marginBottom: ACTION_BOTTOM,
+            marginBottom:
+              'calc(var(--action-bottom, 48px) + var(--safe-bottom, 0px))',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
@@ -1654,68 +1721,128 @@ function RelationshipStep({
   const railRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; left: number } | null>(null)
   const dragMoved = useRef(false)
+  const dragging = useRef(false)
+  const snapTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const indexRef = useRef(index)
+  indexRef.current = index
   const [scrollLeft, setScrollLeft] = useState(index * REL_STRIDE)
+
+  const clampIndex = (i: number) =>
+    Math.max(0, Math.min(relationshipTypes.length - 1, i))
+
+  /** Nearest card to the viewport center (works with side padding). */
+  const indexFromRail = (el: HTMLDivElement) => {
+    const center = el.scrollLeft + el.clientWidth / 2
+    let best = 0
+    let bestDist = Infinity
+    for (let i = 0; i < el.children.length; i++) {
+      const card = el.children[i] as HTMLElement
+      const mid = card.offsetLeft + card.offsetWidth / 2
+      const d = Math.abs(mid - center)
+      if (d < bestDist) {
+        bestDist = d
+        best = i
+      }
+    }
+    return clampIndex(best)
+  }
+
+  const scrollToIndex = (el: HTMLDivElement, i: number, smooth: boolean) => {
+    const card = el.children[i] as HTMLElement | undefined
+    if (!card) {
+      el.scrollTo({ left: i * REL_STRIDE, behavior: smooth ? 'smooth' : 'auto' })
+      return
+    }
+    const left = card.offsetLeft - (el.clientWidth - card.offsetWidth) / 2
+    el.scrollTo({ left: Math.max(0, left), behavior: smooth ? 'smooth' : 'auto' })
+  }
+
+  const snap = (smooth = true) => {
+    const el = railRef.current
+    if (!el) return
+    const next = indexFromRail(el)
+    scrollToIndex(el, next, smooth)
+    setScrollLeft(el.scrollLeft)
+    if (next !== indexRef.current) onIndexChange(next)
+  }
 
   useEffect(() => {
     const el = railRef.current
     if (!el) return
-    el.scrollTo({ left: index * REL_STRIDE })
-    setScrollLeft(index * REL_STRIDE)
+    scrollToIndex(el, index, false)
+    setScrollLeft(el.scrollLeft)
   }, [])
 
-  const snap = () => {
-    const el = railRef.current
-    if (!el) return
-    const next = Math.max(
-      0,
-      Math.min(relationshipTypes.length - 1, Math.round(el.scrollLeft / REL_STRIDE)),
-    )
-    el.scrollTo({ left: next * REL_STRIDE, behavior: 'smooth' })
-    onIndexChange(next)
-  }
+  useEffect(
+    () => () => {
+      if (snapTimer.current) clearTimeout(snapTimer.current)
+    },
+    [],
+  )
 
   const onScroll = (e: UIEvent<HTMLDivElement>) => {
-    const left = e.currentTarget.scrollLeft
-    setScrollLeft(left)
-    const next = Math.max(
-      0,
-      Math.min(
-        relationshipTypes.length - 1,
-        Math.round(left / REL_STRIDE),
-      ),
-    )
-    if (next !== index) onIndexChange(next)
+    const el = e.currentTarget
+    setScrollLeft(el.scrollLeft)
+    const next = indexFromRail(el)
+    if (next !== indexRef.current) onIndexChange(next)
+    if (dragging.current) return
+    if (snapTimer.current) clearTimeout(snapTimer.current)
+    // Wait for momentum to finish, then center the closest card
+    snapTimer.current = setTimeout(() => snap(true), 120)
   }
 
-  const onMouseDown = (e: MouseEvent<HTMLDivElement>) => {
+  const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    // Let touch use native scroll + settle; pointer drag is for mouse/pen.
+    if (e.pointerType === 'touch') return
     const el = railRef.current
     if (!el) return
-    drag.current = { x: e.clientX, left: el.scrollLeft }
+    dragging.current = true
     dragMoved.current = false
+    drag.current = { x: e.clientX, left: el.scrollLeft }
+    el.setPointerCapture(e.pointerId)
+    if (snapTimer.current) clearTimeout(snapTimer.current)
   }
 
-  const onMouseMove = (e: MouseEvent<HTMLDivElement>) => {
-    if (!drag.current) return
+  const onPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!drag.current || !dragging.current) return
     const el = railRef.current
     if (!el) return
     const dx = e.clientX - drag.current.x
     if (Math.abs(dx) > 4) dragMoved.current = true
     el.scrollLeft = drag.current.left - dx
+    setScrollLeft(el.scrollLeft)
   }
 
-  const onMouseUp = () => {
-    if (!drag.current) return
+  const onPointerUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (!dragging.current) return
+    const el = railRef.current
+    dragging.current = false
     drag.current = null
-    snap()
+    if (el) {
+      try {
+        el.releasePointerCapture(e.pointerId)
+      } catch {
+        /* already released */
+      }
+      snap(true)
+    }
   }
 
-  const progressPos = scrollLeft / REL_STRIDE
+  // Smooth visual offset from scroll position relative to card centers
+  const visualPos = (() => {
+    const el = railRef.current
+    if (!el || el.children.length === 0) return scrollLeft / REL_STRIDE
+    const center = scrollLeft + el.clientWidth / 2
+    const first = el.children[0] as HTMLElement
+    const origin = first.offsetLeft + first.offsetWidth / 2
+    return (center - origin) / REL_STRIDE
+  })()
 
   return (
     <ScreenShell onBack={onBack} progress={progress}>
       <div
         style={{
-          paddingTop: 100,
+          paddingTop: 'var(--flow-pad-top, 100px)',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -1738,12 +1865,12 @@ function RelationshipStep({
 
         <div
           ref={railRef}
-          className="date-wheel"
+          className="date-wheel relationship-rail"
           onScroll={onScroll}
-          onMouseDown={onMouseDown}
-          onMouseMove={onMouseMove}
-          onMouseUp={onMouseUp}
-          onMouseLeave={onMouseUp}
+          onPointerDown={onPointerDown}
+          onPointerMove={onPointerMove}
+          onPointerUp={onPointerUp}
+          onPointerCancel={onPointerUp}
           style={{
             display: 'flex',
             overflowX: 'auto',
@@ -1757,10 +1884,14 @@ function RelationshipStep({
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             perspective: 1200,
+            scrollSnapType: 'x mandatory',
+            WebkitOverflowScrolling: 'touch',
+            overscrollBehaviorX: 'contain',
+            touchAction: 'pan-x',
           }}
         >
           {relationshipTypes.map((type, i) => {
-            const offset = progressPos - i
+            const offset = visualPos - i
             const dist = Math.min(1, Math.abs(offset))
             const scale = 1 - dist * 0.12
             const opacity = 1 - dist * 0.12
@@ -1777,6 +1908,8 @@ function RelationshipStep({
                   alignItems: 'center',
                   justifyContent: 'center',
                   zIndex: Math.round((1 - dist) * 10),
+                  scrollSnapAlign: 'center',
+                  scrollSnapStop: 'always',
                 }}
               >
                 <div
@@ -1886,7 +2019,8 @@ function RelationshipStep({
         <div
           style={{
             marginTop: 32,
-            marginBottom: ACTION_BOTTOM,
+            marginBottom:
+              'calc(var(--action-bottom, 48px) + var(--safe-bottom, 0px))',
             display: 'flex',
             justifyContent: 'center',
             flex: 'none',
@@ -2383,7 +2517,7 @@ function MeetStep({
     <ScreenShell onBack={onBack} progress={progress}>
       <div
         style={{
-          padding: '100px 20px 0',
+          padding: 'var(--flow-pad-top, 100px) 20px 0',
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
@@ -2560,7 +2694,8 @@ function MeetStep({
         <div
           style={{
             marginTop: 'auto',
-            marginBottom: ACTION_BOTTOM,
+            marginBottom:
+              'calc(var(--action-bottom, 48px) + var(--safe-bottom, 0px))',
             width: '100%',
             display: 'flex',
             gap: 12,
@@ -2659,6 +2794,8 @@ function NameYoshiStep({
   onBack: () => void
   progress: number
 }) {
+  const [focused, setFocused] = useState(true)
+
   return (
     <ScreenShell onBack={onBack} progress={progress} headerVariant="dark">
       <div
@@ -2666,14 +2803,18 @@ function NameYoshiStep({
           height: '100%',
           display: 'flex',
           flexDirection: 'column',
+          overflow: 'hidden',
+          touchAction: focused ? 'none' : undefined,
         }}
       >
+        {/* Shrinks when desktop fake keyboard is visible so the input stays 58px */}
         <div
           style={{
-            height: 340,
+            flex: '1 1 200px',
+            maxHeight: 340,
+            minHeight: 160,
             borderRadius: '0 0 28px 28px',
             overflow: 'hidden',
-            flex: 'none',
             position: 'relative',
           }}
         >
@@ -2705,14 +2846,18 @@ function NameYoshiStep({
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            padding: '28px 32px 0',
-            gap: 22,
+            padding: '0 32px',
+            minHeight: 0,
+            position: 'relative',
+            zIndex: 2,
           }}
         >
           <input
             autoFocus
             value={value}
             onChange={(e) => onChange(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
             onKeyDown={(e) => {
               if (e.key === 'Enter' && value.trim()) onNext()
             }}
@@ -2720,6 +2865,9 @@ function NameYoshiStep({
             style={{
               width: '100%',
               height: 58,
+              minHeight: 58,
+              flexShrink: 0,
+              marginTop: -29,
               borderRadius: 999,
               border: '1px solid rgba(26,39,86,0.08)',
               background: '#fff',
@@ -2732,18 +2880,13 @@ function NameYoshiStep({
               boxSizing: 'border-box',
               fontFamily: 'inherit',
               textAlign: 'center',
+              position: 'relative',
+              zIndex: 2,
             }}
           />
-          <div
-            style={{
-              marginTop: 'auto',
-              marginBottom: ACTION_BOTTOM,
-              display: 'flex',
-              justifyContent: 'center',
-            }}
-          >
+          <KeyboardDockedAction active={focused}>
             <NextButton onClick={onNext} disabled={!value.trim()} />
-          </div>
+          </KeyboardDockedAction>
         </div>
       </div>
     </ScreenShell>

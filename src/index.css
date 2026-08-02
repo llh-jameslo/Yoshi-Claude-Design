@@ -17,18 +17,69 @@ body {
   -webkit-font-smoothing: antialiased;
 }
 
-@media (max-width: 520px) {
+/* Mobile: fill the viewport; hide desktop device chrome */
+@media (max-width: 520px), (max-height: 520px) {
   html,
   body,
   #root {
     height: 100%;
+    min-height: 100%;
     min-height: 100dvh;
+    min-height: -webkit-fill-available;
     overflow: hidden;
   }
 
   body {
-    background: #000;
+    background: #f2f0f8;
   }
+
+  .ios-device-chrome {
+    display: none !important;
+  }
+
+  .ios-device {
+    width: 100% !important;
+    height: 100% !important;
+    max-width: none !important;
+    max-height: none !important;
+    border-radius: 0 !important;
+    box-shadow: none !important;
+  }
+}
+
+html[data-device-chrome='off'] .ios-device-chrome {
+  display: none !important;
+}
+
+html[data-device-chrome='off'],
+html[data-device-chrome='off'] body,
+html[data-device-chrome='off'] #root {
+  height: 100%;
+  min-height: 100%;
+  min-height: 100dvh;
+  min-height: -webkit-fill-available;
+  overflow: hidden;
+}
+
+html[data-device-chrome='off'] body {
+  background: #f2f0f8;
+}
+
+html[data-device-chrome='off'] .ios-device {
+  width: 100% !important;
+  height: 100% !important;
+  max-width: none !important;
+  max-height: none !important;
+  border-radius: 0 !important;
+  box-shadow: none !important;
+}
+
+/* While keyboard is open: hard-stop rubber-band / page scroll */
+html[data-kb-lock='on'],
+html[data-kb-lock='on'] body {
+  overflow: hidden !important;
+  overscroll-behavior: none !important;
+  touch-action: none;
 }
 
 @keyframes fuiboDropIn {
@@ -211,10 +262,11 @@ body {
   background: transparent !important;
 }
 
-/* Hidden by default (topic carousel, wheels). Chat flashes via .is-scrolling. */
+/* Always hide native scroll rails (chat, rails, wheels). */
 .fuibo-scroll {
   scrollbar-width: none;
   -ms-overflow-style: none;
+  scrollbar-gutter: auto;
 }
 
 .fuibo-scroll::-webkit-scrollbar {

@@ -83,7 +83,7 @@ export function TopicDrawer({
     <div
       style={{
         position: 'absolute',
-        top: 136,
+        top: 'calc(var(--nav-top, 64px) + 72px)',
         left: 0,
         right: 0,
         zIndex: 25,

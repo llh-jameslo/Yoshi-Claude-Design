@@ -1,4 +1,11 @@
-import { useEffect, useMemo, useRef, type MouseEvent } from 'react'
+import {
+  useEffect,
+  useMemo,
+  useRef,
+  type MouseEvent,
+  type UIEvent,
+} from 'react'
+import { useCompactViewport } from '../hooks/useCompactViewport'
 import { orderedYoshis, type Yoshi } from './yoshis'
 
 const CARD_W = 300
@@ -27,9 +34,11 @@ export function SwitchYoshi({
   onSelect,
   customYoshi,
 }: Props) {
+  const compact = useCompactViewport()
   const railRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; left: number } | null>(null)
   const dragMoved = useRef(false)
+  const snapTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const list = useMemo(() => {
     return orderedYoshis(selectedId).map((y) => {
       if (!customYoshi || y.id !== customYoshi.id) return y
@@ -47,6 +56,13 @@ export function SwitchYoshi({
     // Selected is always first — open at the left edge
     el.scrollLeft = 0
   }, [selectedId])
+
+  useEffect(
+    () => () => {
+      if (snapTimer.current) clearTimeout(snapTimer.current)
+    },
+    [],
+  )
 
   const snap = () => {
     const el = railRef.current
@@ -83,6 +99,14 @@ export function SwitchYoshi({
     snap()
   }
 
+  /** Mobile-only: settle after touch momentum (desktop keeps mouse-up snap only). */
+  const onScroll = (_e: UIEvent<HTMLDivElement>) => {
+    if (!compact) return
+    if (drag.current) return
+    if (snapTimer.current) clearTimeout(snapTimer.current)
+    snapTimer.current = setTimeout(() => snap(), 120)
+  }
+
   return (
     <div
       style={{
@@ -97,7 +121,7 @@ export function SwitchYoshi({
         onClick={onBack}
         style={{
           position: 'absolute',
-          top: 64,
+          top: compact ? 'var(--nav-top, 64px)' : 64,
           left: 20,
           width: 52,
           height: 52,
@@ -138,7 +162,7 @@ export function SwitchYoshi({
       <div
         style={{
           position: 'absolute',
-          top: 132,
+          top: compact ? 'calc(var(--nav-top, 64px) + 68px)' : 132,
           left: 24,
           right: 24,
           zIndex: 5,
@@ -162,13 +186,14 @@ export function SwitchYoshi({
       <div
         ref={railRef}
         className="fuibo-scroll topic-rail"
+        onScroll={onScroll}
         onMouseDown={onMouseDown}
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
         style={{
           position: 'absolute',
-          top: 262,
+          top: compact ? 'calc(var(--nav-top, 64px) + 198px)' : 262,
           left: 0,
           right: 0,
           bottom: 34,
@@ -176,11 +201,31 @@ export function SwitchYoshi({
           overflowX: 'auto',
           overflowY: 'hidden',
           gap: GAP,
-          padding: `0 calc((100% - ${CARD_W}px) / 2) 0 ${SIDE_PAD}px`,
+          // Desktop: unchanged. Mobile: set sides separately so a bad right calc
+          // can't wipe left inset; scroll-padding keeps snap off the screen edge.
+          ...(compact
+            ? {
+                paddingTop: 0,
+                paddingBottom: 0,
+                paddingLeft: SIDE_PAD,
+                paddingRight: `max(${SIDE_PAD}px, calc(100% - ${CARD_W}px - ${SIDE_PAD}px))`,
+                scrollPaddingLeft: SIDE_PAD,
+              }
+            : {
+                padding: `0 calc((100% - ${CARD_W}px) / 2) 0 ${SIDE_PAD}px`,
+              }),
           cursor: 'grab',
           userSelect: 'none',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
+          ...(compact
+            ? {
+                scrollSnapType: 'x mandatory' as const,
+                WebkitOverflowScrolling: 'touch',
+                overscrollBehaviorX: 'contain' as const,
+                touchAction: 'pan-x' as const,
+              }
+            : {}),
         }}
       >
         {list.map((y) => (
@@ -188,6 +233,7 @@ export function SwitchYoshi({
             key={y.id}
             yoshi={y}
             selected={y.id === selectedId}
+            snapAlign={compact}
             onSelect={() => {
               if (dragMoved.current) {
                 dragMoved.current = false
@@ -206,10 +252,12 @@ function YoshiCard({
   yoshi,
   selected,
   onSelect,
+  snapAlign = false,
 }: {
   yoshi: Yoshi
   selected: boolean
   onSelect: () => void
+  snapAlign?: boolean
 }) {
   // Character image is the tall layer; accent plate is a separate sibling
   // behind it at ~75% of the image height (not a wrapping parent).
@@ -228,6 +276,12 @@ function YoshiCard({
         height: '100%',
         maxHeight: 500,
         position: 'relative',
+        ...(snapAlign
+          ? {
+              scrollSnapAlign: 'start' as const,
+              scrollSnapStop: 'always' as const,
+            }
+          : {}),
       }}
     >
       {/* Background card — shorter plate under the character */}

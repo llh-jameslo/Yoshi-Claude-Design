@@ -5,9 +5,9 @@ import {
   useRef,
   useState,
   type PointerEvent as ReactPointerEvent,
-  type UIEvent,
 } from 'react'
 import { IOSDevice } from '../components/IOSDevice'
+import { useCompactViewport } from '../hooks/useCompactViewport'
 import { TopicDrawer } from './TopicDrawer'
 import { SwitchYoshi } from './SwitchYoshi'
 import { DEFAULT_YOSHI_ID, getYoshi } from './yoshis'
@@ -171,6 +171,28 @@ function ChatBubbleIcon() {
   )
 }
 
+/** Clean swap glyph for Switch Yoshi (replaces the emoji). */
+function SwitchYoshiIcon({ color = '#17151C' }: { color?: string }) {
+  return (
+    <svg width="26" height="26" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <path
+        d="M8 7h10.5M15.5 3.5L19.5 7l-4 3.5"
+        stroke={color}
+        strokeWidth="2.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+      <path
+        d="M16 17H5.5M8.5 20.5L4.5 17l4-3.5"
+        stroke={color}
+        strokeWidth="2.1"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+      />
+    </svg>
+  )
+}
+
 function Chevron({ open }: { open: boolean }) {
   return (
     <div
@@ -268,19 +290,39 @@ export function FuiboFlower({
     '#17151C',
   )
 
+  const compact = useCompactViewport()
   const threadRef = useRef<HTMLDivElement>(null)
   const titleBlockRef = useRef<HTMLDivElement>(null)
   const dragMoved = useRef(false)
-  const sbTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
   const bgDrag = useRef<{ startClientY: number; startY: number } | null>(null)
   // Default assumes two title lines; one-liners pull the image up once measured
   const [heroTop, setHeroTop] = useState(TITLE_TOP + 48 * 1.2 * 2 + TITLE_TO_HERO_GAP)
+  const titleTop = compact
+    ? 'calc(var(--nav-top, 12px) + 72px)'
+    : TITLE_TOP
+  const homeBottom = compact
+    ? 'calc(20px + var(--safe-bottom, 0px))'
+    : 34
+  const bubbleBottom = compact
+    ? 'calc(22px + var(--safe-bottom, 0px))'
+    : 36
+  const heroBottom = compact
+    ? 'calc(40px + var(--safe-bottom, 0px))'
+    : 56
 
   const kbVisible = kb && !open && !bgEditing
   const badge = !seen && !open
+  // Desktop offsets match pre-mobile work exactly (`kb`, not kbVisible).
   const composerPb = kb ? 10 : 34
   const attachBottom = kb ? 72 : 96
   const threadPb = kb ? 100 : 124
+  // Mobile-only chat layout (do not alter desktop values above).
+  const composerBarH = 72
+  const mobileComposerPad = kbVisible
+    ? 8
+    : 'calc(8px + var(--safe-bottom, 0px))'
+  const mobileAttachBottom = kbVisible ? composerBarH : composerBarH + 8
+  const mobileThreadBottom = composerBarH + (kbVisible ? 8 : 16)
   const chatBgKey = yoshi.image
 
   useEffect(() => {
@@ -307,14 +349,14 @@ export function FuiboFlower({
     const el = titleBlockRef.current
     if (!el || screen !== 'home') return
     const measure = () => {
-      // Use TITLE_TOP (not offsetTop) so shifting the title also shifts the hero
-      setHeroTop(TITLE_TOP + el.offsetHeight + TITLE_TO_HERO_GAP)
+      // Prefer measured title position so mobile (--nav-top) and desktop stay aligned
+      setHeroTop(el.offsetTop + el.offsetHeight + TITLE_TO_HERO_GAP)
     }
     measure()
     const ro = new ResizeObserver(measure)
     ro.observe(el)
     return () => ro.disconnect()
-  }, [yoshi.name, screen])
+  }, [yoshi.name, screen, compact, titleTop])
 
   useEffect(() => {
     const el = threadRef.current
@@ -331,12 +373,6 @@ export function FuiboFlower({
     window.addEventListener('message', onMessage)
     return () => window.removeEventListener('message', onMessage)
   }, [])
-
-  const flashScrollbar = (el: HTMLElement) => {
-    el.classList.add('is-scrolling')
-    if (sbTimer.current) clearTimeout(sbTimer.current)
-    sbTimer.current = setTimeout(() => el.classList.remove('is-scrolling'), 850)
-  }
 
   const startTopic = (i: number) => {
     if (dragMoved.current) {
@@ -363,10 +399,6 @@ export function FuiboFlower({
     if (!text) return
     setThread((t) => [...t, { type: 'me', text }])
     setDraft('')
-  }
-
-  const onThreadScroll = (e: UIEvent<HTMLDivElement>) => {
-    flashScrollbar(e.currentTarget)
   }
 
   const beginBgEdit = () => {
@@ -438,7 +470,32 @@ export function FuiboFlower({
       <div
         style={{
           position: 'absolute',
-          top: 64,
+          top: heroTop,
+          left: 18,
+          right: 18,
+          bottom: heroBottom,
+          borderRadius: 26,
+          overflow: 'hidden',
+          boxShadow: '0 18px 44px rgba(26,24,20,.18)',
+        }}
+      >
+        <img
+          src={yoshi.image}
+          style={{
+            width: '100%',
+            height: '100%',
+            objectFit: 'cover',
+            objectPosition: '50% 20%',
+            display: 'block',
+          }}
+          alt={yoshi.name}
+        />
+      </div>
+
+      <div
+        style={{
+          position: 'absolute',
+          top: 'var(--nav-top, 64px)',
           left: 0,
           right: 0,
           display: 'flex',
@@ -507,7 +564,7 @@ export function FuiboFlower({
         ref={titleBlockRef}
         style={{
           position: 'absolute',
-          top: TITLE_TOP,
+          top: titleTop,
           left: 24,
           right: 24,
           zIndex: 5,
@@ -532,55 +589,59 @@ export function FuiboFlower({
         >
           {yoshi.name}
         </div>
-        <div
-          onClick={() => {
-            setOpen(false)
-            setScreen('switch')
-          }}
-          style={{
-            position: 'absolute',
-            right: 0,
-            bottom: 0,
-            fontSize: 32,
-            color: '#17151C',
-            cursor: 'pointer',
-          }}
-          title="Switch Yoshi"
-        >
-          ⇄
-        </div>
-      </div>
-
-      <div
-        style={{
-          position: 'absolute',
-          top: heroTop,
-          left: 18,
-          right: 18,
-          bottom: 56,
-          borderRadius: 26,
-          overflow: 'hidden',
-          boxShadow: '0 18px 44px rgba(26,24,20,.18)',
-        }}
-      >
-        <img
-          src={yoshi.image}
-          style={{
-            width: '100%',
-            height: '100%',
-            objectFit: 'cover',
-            objectPosition: '50% 20%',
-            display: 'block',
-          }}
-          alt={yoshi.name}
-        />
+        {compact ? (
+          <button
+            type="button"
+            onClick={() => {
+              setOpen(false)
+              setScreen('switch')
+            }}
+            aria-label="Switch Yoshi"
+            title="Switch Yoshi"
+            style={{
+              position: 'absolute',
+              right: 0,
+              bottom: 0,
+              width: 44,
+              height: 44,
+              border: 'none',
+              background: 'transparent',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              color: '#17151C',
+              cursor: 'pointer',
+              padding: 0,
+            }}
+          >
+            <SwitchYoshiIcon />
+          </button>
+        ) : (
+          <div
+            onClick={() => {
+              setOpen(false)
+              setScreen('switch')
+            }}
+            style={{
+              position: 'absolute',
+              right: 0,
+              bottom: 0,
+              fontSize: 32,
+              color: '#17151C',
+              cursor: 'pointer',
+            }}
+            title="Switch Yoshi"
+          >
+            ⇄
+          </div>
+        )}
       </div>
 
       <div
         style={{
           position: 'absolute',
           left: 30,
-          bottom: 36,
+          bottom: bubbleBottom,
           maxWidth: 214,
           zIndex: 8,
           background: '#FFFFFF',
@@ -603,7 +664,7 @@ export function FuiboFlower({
         style={{
           position: 'absolute',
           right: 30,
-          bottom: 34,
+          bottom: homeBottom,
           zIndex: 8,
           width: 58,
           height: 58,
@@ -623,7 +684,7 @@ export function FuiboFlower({
         onClick={toggle}
         style={{
           position: 'absolute',
-          top: 64,
+          top: 'var(--nav-top, 64px)',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 30,
@@ -726,7 +787,6 @@ export function FuiboFlower({
       <div
         ref={threadRef}
         className="fuibo-scroll"
-        onScroll={onThreadScroll}
         onClick={() => {
           if (kb) setKb(false)
         }}
@@ -735,7 +795,7 @@ export function FuiboFlower({
           top: 0,
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: compact ? mobileThreadBottom : 0,
           overflowY: bgEditing ? 'hidden' : 'auto',
           pointerEvents: bgEditing ? 'none' : 'auto',
           zIndex: 1,
@@ -745,10 +805,17 @@ export function FuiboFlower({
           paddingTop: 250,
           paddingLeft: 18,
           paddingRight: 18,
-          paddingBottom: threadPb,
+          paddingBottom: compact ? 16 : threadPb,
           WebkitMaskImage:
             'linear-gradient(to bottom,transparent 122px,#000 312px)',
           maskImage: 'linear-gradient(to bottom,transparent 122px,#000 312px)',
+          ...(compact
+            ? {
+                overscrollBehavior: 'contain' as const,
+                WebkitOverflowScrolling: 'touch',
+                touchAction: 'pan-y' as const,
+              }
+            : {}),
         }}
       >
         <div aria-hidden style={{ marginTop: 'auto' }} />
@@ -854,7 +921,7 @@ export function FuiboFlower({
         aria-label="Back"
         style={{
           position: 'absolute',
-          top: 64,
+          top: 'var(--nav-top, 64px)',
           left: 20,
           width: 52,
           height: 52,
@@ -883,7 +950,7 @@ export function FuiboFlower({
         aria-label={bgEditing ? 'Save background' : 'Edit background'}
         style={{
           position: 'absolute',
-          top: 64,
+          top: 'var(--nav-top, 64px)',
           right: 20,
           width: 52,
           height: 52,
@@ -922,7 +989,7 @@ export function FuiboFlower({
         onClick={toggle}
         style={{
           position: 'absolute',
-          top: 64,
+          top: 'var(--nav-top, 64px)',
           left: '50%',
           transform: 'translateX(-50%)',
           zIndex: 30,
@@ -962,7 +1029,7 @@ export function FuiboFlower({
             style={{
               position: 'absolute',
               left: 16,
-              bottom: attachBottom,
+              bottom: compact ? mobileAttachBottom : attachBottom,
               zIndex: 16,
               width: 210,
               background: '#FFFFFF',
@@ -1080,7 +1147,9 @@ export function FuiboFlower({
           display: 'flex',
           alignItems: 'center',
           gap: 10,
-          padding: `10px 16px ${composerPb}px`,
+          padding: compact
+            ? `10px 16px ${mobileComposerPad}${typeof mobileComposerPad === 'number' ? 'px' : ''}`
+            : `10px 16px ${composerPb}px`,
           background: '#EDECF2',
           pointerEvents: bgEditing ? 'none' : 'auto',
           opacity: bgEditing ? 0.4 : 1,
