@@ -3,6 +3,9 @@ import { useCompactViewport } from '../hooks/useCompactViewport'
 import { IOSStatusBar } from './IOSStatusBar'
 import { IOSKeyboard } from './IOSKeyboard'
 
+/** Space layouts reserve below the fake status bar (desktop chrome). */
+const FAKE_STATUS_TRIM = 54
+
 type Props = {
   children: ReactNode
   width?: number
@@ -53,12 +56,33 @@ export function IOSDevice({
           }}
         />
       )}
-      <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
-        <IOSStatusBar dark={dark} />
-      </div>
+      {!compact && (
+        <div style={{ position: 'absolute', top: 0, left: 0, right: 0, zIndex: 10 }}>
+          <IOSStatusBar dark={dark} />
+        </div>
+      )}
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
-          {children}
+        <div
+          style={{
+            flex: 1,
+            overflow: 'hidden',
+            position: 'relative',
+            paddingTop: compact ? 'env(safe-area-inset-top, 0px)' : 0,
+          }}
+        >
+          <div
+            style={
+              compact
+                ? {
+                    position: 'relative',
+                    height: `calc(100% + ${FAKE_STATUS_TRIM}px)`,
+                    marginTop: -FAKE_STATUS_TRIM,
+                  }
+                : { height: '100%', position: 'relative' }
+            }
+          >
+            {children}
+          </div>
         </div>
         {keyboard && !compact && <IOSKeyboard dark={dark} />}
       </div>
