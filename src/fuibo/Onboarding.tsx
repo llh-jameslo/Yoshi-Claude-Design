@@ -12,6 +12,7 @@ import {
   useKeyboardInset,
   useScrollLock,
 } from '../hooks/useKeyboardInset'
+import { useCompactViewport } from '../hooks/useCompactViewport'
 import { DEFAULT_YOSHI_ID, getYoshi } from './yoshis'
 
 export type OnboardingResult = {
@@ -2272,11 +2273,14 @@ function MeetStep({
   onBack: () => void
   progress: number
 }) {
+  const compact = useCompactViewport()
   const [yoshiIndex, setYoshiIndex] = useState(START_YOSHI)
   const [variation, setVariation] = useState(START_LOOK)
   const [warmth, setWarmth] = useState(50)
   const [customPhoto, setCustomPhoto] = useState<string | null>(null)
   const [slide, setSlide] = useState({ x: 0, y: 0 })
+  /** Mobile: which frame is on screen while dragging (floor — avoids round-flip twitch). */
+  const [showFrame, setShowFrame] = useState({ y: START_YOSHI, v: START_LOOK })
   const [holdProgress, setHoldProgress] = useState(0)
   const [panning, setPanning] = useState(false)
   const [guide, setGuide] = useState<
@@ -2309,10 +2313,17 @@ function MeetStep({
   const customYoshiIndex = MEET_YOSHI_COUNT
   const totalYoshis = MEET_YOSHI_COUNT + (customPhoto ? 1 : 0)
   const selectedCustomPhoto = customPhoto != null && yoshiIndex === customYoshiIndex
-  const image = selectedCustomPhoto
+  const frameY = compact && panning ? showFrame.y : yoshiIndex
+  const frameV = compact && panning ? showFrame.v : variation
+  const showingCustom =
+    customPhoto != null && frameY === customYoshiIndex
+  const image = showingCustom
+    ? customPhoto
+    : meetImageSrc(Math.min(frameY, MEET_YOSHI_COUNT - 1), frameV)
+  const selectedImage = selectedCustomPhoto
     ? customPhoto
     : meetImageSrc(Math.min(yoshiIndex, MEET_YOSHI_COUNT - 1), variation)
-  selectionRef.current = { image, warmth }
+  selectionRef.current = { image: selectedImage, warmth }
 
   const clampYoshi = (v: number) =>
     Math.max(0, Math.min(totalYoshis - 1, v))
@@ -2328,10 +2339,19 @@ function MeetStep({
       varPos.current = START_LOOK
       setYoshiIndex(yNear)
       setVariation(START_LOOK)
-      setSlide({
-        x: axis === 'vertical' ? 0 : -(y - yNear) * 40,
-        y: 0,
-      })
+      if (compact) {
+        const yFloor = Math.floor(y + 1e-6)
+        setShowFrame({ y: yFloor, v: START_LOOK })
+        setSlide({
+          x: axis === 'vertical' ? 0 : -(y - yFloor) * 40,
+          y: 0,
+        })
+      } else {
+        setSlide({
+          x: axis === 'vertical' ? 0 : -(y - yNear) * 40,
+          y: 0,
+        })
+      }
       return
     }
 
@@ -2351,10 +2371,28 @@ function MeetStep({
     const vNear = Math.round(v)
     setYoshiIndex(yNear)
     setVariation(vNear)
-    setSlide({
-      x: axis === 'vertical' ? 0 : -(y - yNear) * 40,
-      y: axis === 'horizontal' ? 0 : -(v - vNear) * 32,
-    })
+
+    if (compact) {
+      // Same single-image drag as desktop, but floor the shown frame so slide
+      // stays one-sided (0 → -40) instead of flipping across 0.5 (twitch).
+      const yFloor = Math.floor(y + 1e-6)
+      const vFloor = Math.floor(v + 1e-6)
+      const showY = axis === 'vertical' ? yNear : yFloor
+      const showV =
+        axis === 'horizontal'
+          ? Math.round(looksByYoshi.current[showY] ?? START_LOOK)
+          : vFloor
+      setShowFrame({ y: showY, v: showV })
+      setSlide({
+        x: axis === 'vertical' ? 0 : -(y - yFloor) * 40,
+        y: axis === 'horizontal' ? 0 : -(v - vFloor) * 32,
+      })
+    } else {
+      setSlide({
+        x: axis === 'vertical' ? 0 : -(y - yNear) * 40,
+        y: axis === 'horizontal' ? 0 : -(v - vNear) * 32,
+      })
+    }
   }
 
   const stopHold = () => {
@@ -2419,6 +2457,7 @@ function MeetStep({
     varPos.current = START_LOOK
     setYoshiIndex(customYoshiIndex)
     setVariation(START_LOOK)
+    setShowFrame({ y: customYoshiIndex, v: START_LOOK })
     setSlide({ x: 0, y: 0 })
     setGuide(null)
     e.currentTarget.value = ''
@@ -2505,6 +2544,9 @@ function MeetStep({
       }
       syncFromPos('both')
       setSlide({ x: 0, y: 0 })
+      if (compact) {
+        setShowFrame({ y: yoshiPos.current, v: varPos.current })
+      }
     }
 
     mode.current = 'none'
@@ -2571,7 +2613,7 @@ function MeetStep({
           >
             <img
               src={image}
-              alt={`Yoshi ${yoshiIndex + 1} look ${variation + 1}`}
+              alt={`Yoshi ${frameY + 1} look ${frameV + 1}`}
               draggable={false}
               style={{
                 width: '100%',
@@ -2677,6 +2719,7 @@ function MeetStep({
             marginBottom: 22,
             display: 'flex',
             justifyContent: 'center',
+            alignItems: 'center',
             gap: 9,
             color: MUTED,
             fontSize: 13,
@@ -2686,7 +2729,47 @@ function MeetStep({
         >
           <span>↔ swap Yoshi</span>
           <span>·</span>
-          <span>↕ looks</span>
+          <span
+            style={
+              compact
+                ? {
+                    display: 'inline-flex',
+                    alignItems: 'center',
+                    gap: 4,
+                    lineHeight: 1,
+                  }
+                : undefined
+            }
+          >
+            {compact ? (
+              <>
+                {/* SVG up/down arrow — same weight as ↔ / ↻, never emoji on iOS */}
+                <svg
+                  width="14"
+                  height="14"
+                  viewBox="0 0 16 16"
+                  aria-hidden
+                  style={{
+                    flex: 'none',
+                    display: 'block',
+                    marginTop: -1,
+                  }}
+                >
+                  <path
+                    d="M8 1.5v13M4.5 4.5L8 1.5l3.5 3M4.5 11.5L8 14.5l3.5-3"
+                    fill="none"
+                    stroke="currentColor"
+                    strokeWidth="1.7"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+                looks
+              </>
+            ) : (
+              '↕ looks'
+            )}
+          </span>
           <span>·</span>
           <span>↻ warmth</span>
         </div>
