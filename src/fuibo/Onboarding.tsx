@@ -1147,6 +1147,7 @@ function HobbiesChatStep({
   onNext: () => void
   onBack: () => void
 }) {
+  const compact = useCompactViewport()
   const count = selected.length
   const ready = count >= 3
   const threadRef = useRef<HTMLDivElement>(null)
@@ -1157,7 +1158,7 @@ function HobbiesChatStep({
     requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight
     })
-  }, [])
+  }, [selected.length, compact])
 
   return (
     <ScreenShell>
@@ -1210,7 +1211,10 @@ function HobbiesChatStep({
           paddingTop: 250,
           paddingLeft: 18,
           paddingRight: 18,
-          paddingBottom: 152,
+          // Mobile: sit chips just above Continue; desktop keeps taller CTA clearance
+          paddingBottom: compact
+            ? 'calc(66px + var(--action-bottom, 14px) + var(--safe-bottom, 0px))'
+            : 152,
           WebkitMaskImage:
             'linear-gradient(to bottom,transparent 122px,#000 312px)',
           maskImage: 'linear-gradient(to bottom,transparent 122px,#000 312px)',
@@ -1719,6 +1723,7 @@ function RelationshipStep({
   onBack: () => void
   progress: number
 }) {
+  const compact = useCompactViewport()
   const railRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; left: number } | null>(null)
   const dragMoved = useRef(false)
@@ -1787,13 +1792,15 @@ function RelationshipStep({
     const next = indexFromRail(el)
     if (next !== indexRef.current) onIndexChange(next)
     if (dragging.current) return
+    // Mobile: settle after touch momentum. Desktop snaps only on pointer-up
+    // so drag can slide freely between cards.
+    if (!compact) return
     if (snapTimer.current) clearTimeout(snapTimer.current)
-    // Wait for momentum to finish, then center the closest card
     snapTimer.current = setTimeout(() => snap(true), 120)
   }
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
-    // Let touch use native scroll + settle; pointer drag is for mouse/pen.
+    // Touch uses native scroll + settle; mouse/pen drag is desktop free-slide.
     if (e.pointerType === 'touch') return
     const el = railRef.current
     if (!el) return
@@ -1885,10 +1892,18 @@ function RelationshipStep({
             scrollbarWidth: 'none',
             msOverflowStyle: 'none',
             perspective: 1200,
-            scrollSnapType: 'x mandatory',
             WebkitOverflowScrolling: 'touch',
             overscrollBehaviorX: 'contain',
-            touchAction: 'pan-x',
+            // Mobile: CSS snap for touch. Desktop: free drag, JS snap on release.
+            ...(compact
+              ? {
+                  scrollSnapType: 'x proximity' as const,
+                  touchAction: 'pan-x' as const,
+                }
+              : {
+                  scrollSnapType: 'none' as const,
+                  touchAction: 'none' as const,
+                }),
           }}
         >
           {relationshipTypes.map((type, i) => {
@@ -1909,8 +1924,11 @@ function RelationshipStep({
                   alignItems: 'center',
                   justifyContent: 'center',
                   zIndex: Math.round((1 - dist) * 10),
-                  scrollSnapAlign: 'center',
-                  scrollSnapStop: 'always',
+                  ...(compact
+                    ? {
+                        scrollSnapAlign: 'center' as const,
+                      }
+                    : {}),
                 }}
               >
                 <div
@@ -2313,8 +2331,9 @@ function MeetStep({
   const customYoshiIndex = MEET_YOSHI_COUNT
   const totalYoshis = MEET_YOSHI_COUNT + (customPhoto ? 1 : 0)
   const selectedCustomPhoto = customPhoto != null && yoshiIndex === customYoshiIndex
-  const frameY = compact && panning ? showFrame.y : yoshiIndex
-  const frameV = compact && panning ? showFrame.v : variation
+  // Mobile: hold the committed frame until drag crosses threshold (no per-frame slide)
+  const frameY = compact ? showFrame.y : yoshiIndex
+  const frameV = compact ? showFrame.v : variation
   const showingCustom =
     customPhoto != null && frameY === customYoshiIndex
   const image = showingCustom
@@ -2340,12 +2359,8 @@ function MeetStep({
       setYoshiIndex(yNear)
       setVariation(START_LOOK)
       if (compact) {
-        const yFloor = Math.floor(y + 1e-6)
-        setShowFrame({ y: yFloor, v: START_LOOK })
-        setSlide({
-          x: axis === 'vertical' ? 0 : -(y - yFloor) * 40,
-          y: 0,
-        })
+        setShowFrame({ y: yNear, v: START_LOOK })
+        setSlide({ x: 0, y: 0 })
       } else {
         setSlide({
           x: axis === 'vertical' ? 0 : -(y - yNear) * 40,
@@ -2373,20 +2388,9 @@ function MeetStep({
     setVariation(vNear)
 
     if (compact) {
-      // Same single-image drag as desktop, but floor the shown frame so slide
-      // stays one-sided (0 → -40) instead of flipping across 0.5 (twitch).
-      const yFloor = Math.floor(y + 1e-6)
-      const vFloor = Math.floor(v + 1e-6)
-      const showY = axis === 'vertical' ? yNear : yFloor
-      const showV =
-        axis === 'horizontal'
-          ? Math.round(looksByYoshi.current[showY] ?? START_LOOK)
-          : vFloor
-      setShowFrame({ y: showY, v: showV })
-      setSlide({
-        x: axis === 'vertical' ? 0 : -(y - yFloor) * 40,
-        y: axis === 'horizontal' ? 0 : -(v - vFloor) * 32,
-      })
+      // Image stays put; only swap when rounded index changes (drag past midpoint).
+      setShowFrame({ y: yNear, v: vNear })
+      setSlide({ x: 0, y: 0 })
     } else {
       setSlide({
         x: axis === 'vertical' ? 0 : -(y - yNear) * 40,
@@ -2479,6 +2483,10 @@ function MeetStep({
       customPhoto != null && yNear === customYoshiIndex
         ? START_LOOK
         : clampLook(looksByYoshi.current[yNear] ?? START_LOOK)
+    if (compact) {
+      setShowFrame({ y: yNear, v: Math.round(varPos.current) })
+      setSlide({ x: 0, y: 0 })
+    }
     setPanning(true)
     setGuide(null)
   }
@@ -2499,8 +2507,12 @@ function MeetStep({
     const dy = e.clientY - lastPtr.current.y
     lastPtr.current = { x: e.clientX, y: e.clientY }
 
+    // Mobile: slightly longer travel before an index change (deadzone), no image slide.
+    const yoshiPx = compact ? 80 : MEET_YOSHI_PX
+    const lookPx = compact ? 72 : MEET_LOOK_PX
+
     if (panAxis.current === 'horizontal') {
-      yoshiPos.current -= dx / MEET_YOSHI_PX
+      yoshiPos.current -= dx / yoshiPx
       syncFromPos('horizontal')
       const span = Math.max(1, totalYoshis - 1)
       setGuide({ kind: 'horizontal', t: yoshiPos.current / span })
@@ -2510,7 +2522,7 @@ function MeetStep({
         setGuide(null)
         return
       }
-      varPos.current -= dy / MEET_LOOK_PX
+      varPos.current -= dy / lookPx
       syncFromPos('vertical')
       const span = Math.max(1, MEET_VARIATIONS - 1)
       setGuide({ kind: 'vertical', t: varPos.current / span })
@@ -2622,8 +2634,12 @@ function MeetStep({
                 objectPosition: '50% 18%',
                 display: 'block',
                 filter: warmthFilter(warmth),
-                transform: `translate(${slide.x}px, ${slide.y}px) scale(1.04)`,
-                transition: panning ? 'none' : 'transform .28s ease',
+                // Mobile: no drag parallax — image stays locked until threshold swap
+                transform: compact
+                  ? 'scale(1.04)'
+                  : `translate(${slide.x}px, ${slide.y}px) scale(1.04)`,
+                transition:
+                  compact || panning ? 'none' : 'transform .28s ease',
               }}
             />
             <div
