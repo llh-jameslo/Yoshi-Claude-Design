@@ -1151,6 +1151,8 @@ function HobbiesChatStep({
   const count = selected.length
   const ready = count >= 3
   const threadRef = useRef<HTMLDivElement>(null)
+  const chipsRef = useRef<HTMLDivElement>(null)
+  const [chipsH, setChipsH] = useState(220)
 
   useEffect(() => {
     const el = threadRef.current
@@ -1158,7 +1160,68 @@ function HobbiesChatStep({
     requestAnimationFrame(() => {
       el.scrollTop = el.scrollHeight
     })
-  }, [selected.length, compact])
+  }, [selected.length, compact, chipsH])
+
+  useEffect(() => {
+    if (!compact) return
+    const el = chipsRef.current
+    if (!el) return
+    const measure = () => setChipsH(el.offsetHeight)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [compact])
+
+  const hobbyChips = (
+    <div
+      style={{
+        alignSelf: 'flex-start',
+        maxWidth: '88%',
+        display: 'flex',
+        flexWrap: 'wrap',
+        gap: 10,
+        animation: 'fuiboMsgIn .28s ease',
+      }}
+    >
+      {HOBBIES.map((item) => {
+        const on = selected.includes(item.id)
+        return (
+          <button
+            key={item.id}
+            type="button"
+            onClick={() => onToggle(item.id)}
+            style={{
+              height: 42,
+              padding: '0 16px',
+              borderRadius: 999,
+              border: on
+                ? '1.5px solid rgba(30,58,50,.28)'
+                : '1px solid rgba(26,24,20,0.08)',
+              background: on ? '#CFE9DE' : '#fff',
+              color: '#2A2620',
+              fontSize: 15,
+              fontWeight: 400,
+              lineHeight: 1.5,
+              fontFamily: 'inherit',
+              cursor: 'pointer',
+              boxShadow: 'none',
+              transition:
+                'background .2s ease, border-color .2s ease, color .2s ease',
+            }}
+          >
+            {item.label}
+          </button>
+        )
+      })}
+    </div>
+  )
+
+  const ctaPad =
+    '10px 16px calc(var(--action-bottom, 48px) + var(--safe-bottom, 0px))'
+  // Continue bar ≈ 10 + 56 + action-bottom + safe
+  const mobileCtaH =
+    'calc(66px + var(--action-bottom, 14px) + var(--safe-bottom, 0px))'
 
   return (
     <ScreenShell>
@@ -1202,7 +1265,8 @@ function HobbiesChatStep({
           top: 0,
           left: 0,
           right: 0,
-          bottom: 0,
+          // Mobile: leave room for pinned chips + Continue so chips never need a scroll
+          bottom: compact ? `calc(${mobileCtaH} + ${chipsH}px)` : 0,
           overflowY: 'auto',
           zIndex: 1,
           display: 'flex',
@@ -1211,10 +1275,7 @@ function HobbiesChatStep({
           paddingTop: 250,
           paddingLeft: 18,
           paddingRight: 18,
-          // Mobile: sit chips just above Continue; desktop keeps taller CTA clearance
-          paddingBottom: compact
-            ? 'calc(66px + var(--action-bottom, 14px) + var(--safe-bottom, 0px))'
-            : 152,
+          paddingBottom: compact ? 12 : 152,
           WebkitMaskImage:
             'linear-gradient(to bottom,transparent 122px,#000 312px)',
           maskImage: 'linear-gradient(to bottom,transparent 122px,#000 312px)',
@@ -1279,48 +1340,28 @@ function HobbiesChatStep({
           Help me understand what you like better:
         </div>
 
+        {/* Desktop: chips stay in the scroll thread */}
+        {!compact ? hobbyChips : null}
+      </div>
+
+      {/* Mobile: pin chips just above Continue — chat is pushed up above them */}
+      {compact ? (
         <div
+          ref={chipsRef}
           style={{
-            alignSelf: 'flex-start',
-            maxWidth: '88%',
-            display: 'flex',
-            flexWrap: 'wrap',
-            gap: 10,
-            animation: 'fuiboMsgIn .28s ease',
+            position: 'absolute',
+            left: 0,
+            right: 0,
+            bottom: mobileCtaH,
+            zIndex: 14,
+            padding: '8px 18px 10px',
+            background:
+              'linear-gradient(180deg, rgba(242,240,248,0) 0%, #F2F0F8 28%)',
           }}
         >
-          {HOBBIES.map((item) => {
-            const on = selected.includes(item.id)
-            return (
-              <button
-                key={item.id}
-                type="button"
-                onClick={() => onToggle(item.id)}
-                style={{
-                  height: 42,
-                  padding: '0 16px',
-                  borderRadius: 999,
-                  border: on
-                    ? '1.5px solid rgba(30,58,50,.28)'
-                    : '1px solid rgba(26,24,20,0.08)',
-                  background: on ? '#CFE9DE' : '#fff',
-                  color: '#2A2620',
-                  fontSize: 15,
-                  fontWeight: 400,
-                  lineHeight: 1.5,
-                  fontFamily: 'inherit',
-                  cursor: 'pointer',
-                  boxShadow: 'none',
-                  transition:
-                    'background .2s ease, border-color .2s ease, color .2s ease',
-                }}
-              >
-                {item.label}
-              </button>
-            )
-          })}
+          {hobbyChips}
         </div>
-      </div>
+      ) : null}
 
       <button
         type="button"
@@ -1361,10 +1402,10 @@ function HobbiesChatStep({
           right: 0,
           bottom: 0,
           zIndex: 15,
-          padding:
-            '10px 16px calc(var(--action-bottom, 48px) + var(--safe-bottom, 0px))',
-          background:
-            'linear-gradient(180deg, rgba(242,240,248,0) 0%, #F2F0F8 40%)',
+          padding: ctaPad,
+          background: compact
+            ? '#F2F0F8'
+            : 'linear-gradient(180deg, rgba(242,240,248,0) 0%, #F2F0F8 40%)',
         }}
       >
         <button
@@ -2507,8 +2548,8 @@ function MeetStep({
     const dy = e.clientY - lastPtr.current.y
     lastPtr.current = { x: e.clientX, y: e.clientY }
 
-    // Mobile: slightly longer travel before an index change (deadzone), no image slide.
-    const yoshiPx = compact ? 80 : MEET_YOSHI_PX
+    // Mobile: shorter horizontal span (~2 swipes across all Yoshis); image still locked.
+    const yoshiPx = compact ? 50 : MEET_YOSHI_PX
     const lookPx = compact ? 72 : MEET_LOOK_PX
 
     if (panAxis.current === 'horizontal') {
