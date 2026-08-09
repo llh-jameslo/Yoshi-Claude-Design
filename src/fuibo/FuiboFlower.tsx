@@ -493,8 +493,21 @@ export function FuiboFlower({
   const compact = useCompactViewport()
   const threadRef = useRef<HTMLDivElement>(null)
   const titleBlockRef = useRef<HTMLDivElement>(null)
+  const shellRef = useRef<HTMLDivElement>(null)
   const dragMoved = useRef(false)
   const bgDrag = useRef<{ startClientY: number; startY: number } | null>(null)
+  const backSwipe = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    startT: number
+    axis: 'none' | 'h' | 'v'
+    dragging: boolean
+  } | null>(null)
+  const [swipeX, setSwipeX] = useState(0)
+  const [swipeDragging, setSwipeDragging] = useState(false)
+  const [shellW, setShellW] = useState(390)
+  const exitTimer = useRef(0)
   // Default assumes two title lines; one-liners pull the image up once measured
   const [heroTop, setHeroTop] = useState(TITLE_TOP + 48 * 1.2 * 2 + TITLE_TO_HERO_GAP)
   const titleTop = compact
@@ -643,6 +656,129 @@ export function FuiboFlower({
     setThread((t) => [...t, { type: 'me', text }])
     setDraft('')
   }
+
+  const BACK_EDGE = 28
+  const BACK_EXIT_MS = 340
+  const BACK_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
+
+  const exitToHome = (animated = true) => {
+    window.clearTimeout(exitTimer.current)
+    if (bgEditing) {
+      setChatBgY(loadChatBgY(chatBgKey))
+      setBgEditing(false)
+      bgDrag.current = null
+    }
+    setOpen(false)
+    setKb(false)
+    setAttach(false)
+    setHomeTipOpen(false)
+
+    if (!animated || screen !== 'chat') {
+      setScreen('home')
+      setSwipeX(0)
+      setSwipeDragging(false)
+      return
+    }
+
+    const w = shellRef.current?.clientWidth || shellW
+    setSwipeDragging(false)
+    setSwipeX(w)
+    exitTimer.current = window.setTimeout(() => {
+      setScreen('home')
+      setSwipeX(0)
+    }, BACK_EXIT_MS)
+  }
+
+  const onBackSwipeDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (screen !== 'chat' || bgEditing || open) return
+    const t = e.target as Element | null
+    if (t?.closest?.('input, textarea, button, a, [role="button"]')) return
+    const shell = shellRef.current
+    if (!shell) return
+    const localX = e.clientX - shell.getBoundingClientRect().left
+    if (localX > BACK_EDGE) return
+
+    backSwipe.current = {
+      pointerId: e.pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startT: performance.now(),
+      axis: 'none',
+      dragging: false,
+    }
+  }
+
+  const onBackSwipeMove = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const s = backSwipe.current
+    if (!s || e.pointerId !== s.pointerId) return
+
+    const dx = e.clientX - s.startX
+    const dy = e.clientY - s.startY
+
+    if (s.axis === 'none') {
+      if (Math.hypot(dx, dy) < 8) return
+      if (Math.abs(dy) >= Math.abs(dx) || dx < 0) {
+        backSwipe.current = null
+        return
+      }
+      s.axis = 'h'
+      s.dragging = true
+      setSwipeDragging(true)
+      try {
+        e.currentTarget.setPointerCapture(e.pointerId)
+      } catch {
+        /* ignore */
+      }
+    }
+
+    if (s.axis !== 'h') return
+    e.preventDefault()
+    const w = shellRef.current?.clientWidth || shellW
+    setSwipeX(Math.max(0, Math.min(w, dx)))
+  }
+
+  const onBackSwipeUp = (e: ReactPointerEvent<HTMLDivElement>) => {
+    const s = backSwipe.current
+    if (!s || e.pointerId !== s.pointerId) return
+    backSwipe.current = null
+
+    if (!s.dragging) {
+      setSwipeDragging(false)
+      return
+    }
+
+    const w = shellRef.current?.clientWidth || shellW
+    const dx = Math.max(0, e.clientX - s.startX)
+    const elapsed = Math.max(1, performance.now() - s.startT)
+    const vx = dx / elapsed // px/ms
+    const shouldComplete = dx / w > 0.32 || vx > 0.7
+
+    setSwipeDragging(false)
+    if (shouldComplete) exitToHome(true)
+    else setSwipeX(0)
+  }
+
+  useEffect(() => {
+    return () => window.clearTimeout(exitTimer.current)
+  }, [])
+
+  useEffect(() => {
+    if (screen !== 'chat') return
+    setSwipeX(0)
+    setSwipeDragging(false)
+    backSwipe.current = null
+  }, [screen])
+
+  useLayoutEffect(() => {
+    if (screen !== 'home' && screen !== 'chat') return
+    const el = shellRef.current
+    if (!el) return
+    const measure = () => setShellW(el.clientWidth || 390)
+    measure()
+    const ro = new ResizeObserver(measure)
+    ro.observe(el)
+    return () => ro.disconnect()
+  }, [screen])
 
   const beginBgEdit = () => {
     setBgEditing(true)
@@ -1308,17 +1444,7 @@ export function FuiboFlower({
 
       <button
         type="button"
-        onClick={() => {
-          if (bgEditing) {
-            setChatBgY(loadChatBgY(chatBgKey))
-            setBgEditing(false)
-            bgDrag.current = null
-          }
-          setScreen('home')
-          setOpen(false)
-          setKb(false)
-          setAttach(false)
-        }}
+        onClick={() => exitToHome(true)}
         aria-label="Back"
         style={{
           position: 'absolute',
@@ -1712,6 +1838,9 @@ export function FuiboFlower({
     />
   )
 
+  const swipeProgress =
+    shellW > 0 ? Math.min(1, Math.max(0, swipeX / shellW)) : 0
+
   return (
     <IOSDevice
       // In chat: follow kb state when open; otherwise let focus auto-open the fake keyboard.
@@ -1719,13 +1848,68 @@ export function FuiboFlower({
         screen === 'chat' ? (kbVisible ? true : undefined) : false
       }
     >
-      {screen === 'home'
-        ? home
-        : screen === 'chat'
-          ? chat
-          : screen === 'game'
-            ? game
-            : switchScreen}
+      {screen === 'game' ? (
+        game
+      ) : screen === 'switch' ? (
+        switchScreen
+      ) : (
+        <div
+          ref={shellRef}
+          style={{
+            position: 'relative',
+            height: '100%',
+            overflow: 'hidden',
+            background: '#E9E6F8',
+          }}
+        >
+          <div
+            style={{
+              position: 'absolute',
+              inset: 0,
+              zIndex: 0,
+              pointerEvents: screen === 'chat' ? 'none' : 'auto',
+              transform:
+                screen === 'chat'
+                  ? `translateX(${-28 * (1 - swipeProgress)}px) scale(${0.96 + 0.04 * swipeProgress})`
+                  : undefined,
+              opacity: screen === 'chat' ? 0.9 + 0.1 * swipeProgress : 1,
+              transformOrigin: 'center center',
+              transition: swipeDragging
+                ? 'none'
+                : `transform ${BACK_EXIT_MS}ms ${BACK_EASE}, opacity ${BACK_EXIT_MS}ms ${BACK_EASE}`,
+              willChange: screen === 'chat' ? 'transform, opacity' : undefined,
+            }}
+          >
+            {home}
+          </div>
+
+          {screen === 'chat' && (
+            <div
+              onPointerDown={onBackSwipeDown}
+              onPointerMove={onBackSwipeMove}
+              onPointerUp={onBackSwipeUp}
+              onPointerCancel={onBackSwipeUp}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 5,
+                transform: `translateX(${swipeX}px)`,
+                transition: swipeDragging
+                  ? 'none'
+                  : `transform ${BACK_EXIT_MS}ms ${BACK_EASE}`,
+                boxShadow:
+                  swipeX > 0
+                    ? '-10px 0 28px rgba(20,17,26,0.22)'
+                    : 'none',
+                willChange: 'transform',
+                touchAction: swipeDragging ? 'none' : 'pan-y',
+              }}
+            >
+              {chat}
+            </div>
+          )}
+        </div>
+      )}
     </IOSDevice>
   )
 }
