@@ -476,8 +476,8 @@ export function FuiboFlower({
     ? `calc(${40 + homeLift}px + var(--safe-bottom, 0px))`
     : 56 + homeLift
   const homeTipBottom = compact
-    ? `calc(${88 + homeLift}px + var(--safe-bottom, 0px))`
-    : 102 + homeLift
+    ? `calc(${96 + homeLift}px + var(--safe-bottom, 0px))`
+    : 110 + homeLift
 
   const keyboardInset = useKeyboardInset()
   const kbVisible = kb && !open && !bgEditing
@@ -893,7 +893,9 @@ export function FuiboFlower({
           width: 58,
           height: 58,
           borderRadius: '50%',
+          boxSizing: 'border-box',
           background: '#C05A3C',
+          border: '1.5px solid #FFFFFF',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
