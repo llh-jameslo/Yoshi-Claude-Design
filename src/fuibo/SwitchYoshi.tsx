@@ -177,14 +177,26 @@ export function SwitchYoshi({
           style={{
             fontSize: 48,
             fontWeight: 500,
-            lineHeight: 1.2,
+            lineHeight: 1.15,
             letterSpacing: '-.02em',
             color: '#17151C',
+            whiteSpace: 'nowrap',
           }}
         >
-          Switch
-          <br />
-          Yoshi
+          Switch Yoshi
+        </div>
+        <div
+          style={{
+            marginTop: 10,
+            fontSize: 16,
+            fontWeight: 400,
+            lineHeight: 1.4,
+            letterSpacing: '-0.01em',
+            color: 'rgba(23, 21, 28, 0.55)',
+            maxWidth: 340,
+          }}
+        >
+          Create up to three Yoshi. Love them, lean on them, grow with them.
         </div>
       </div>
 
@@ -198,7 +210,7 @@ export function SwitchYoshi({
         onMouseLeave={onMouseUp}
         style={{
           position: 'absolute',
-          // Desktop: a bit more air under the title than the original 262
+          // Room for one-line title + description
           top: compact ? 'calc(var(--nav-top, 64px) + 198px)' : 284,
           left: 0,
           right: 0,
