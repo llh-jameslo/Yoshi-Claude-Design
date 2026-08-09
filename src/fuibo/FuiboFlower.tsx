@@ -14,10 +14,6 @@ import { TopicDrawer } from './TopicDrawer'
 import { SwitchYoshi } from './SwitchYoshi'
 import { getYoshi } from './yoshis'
 import { toSwitchYoshi, type OwnedYoshi } from './ownedYoshis'
-import WanderingNobles, {
-  type WanderingNoblesHandle,
-} from './WanderingNobles'
-
 type LinkPreview = {
   url: string
   domain: string
@@ -497,7 +493,6 @@ export function FuiboFlower({
   const threadRef = useRef<HTMLDivElement>(null)
   const titleBlockRef = useRef<HTMLDivElement>(null)
   const shellRef = useRef<HTMLDivElement>(null)
-  const noblesRef = useRef<WanderingNoblesHandle | null>(null)
   const dragMoved = useRef(false)
   const bgDrag = useRef<{ startClientY: number; startY: number } | null>(null)
   const backSwipe = useRef<{
@@ -881,7 +876,6 @@ export function FuiboFlower({
           }}
           alt={yoshi.name}
         />
-        <WanderingNobles ref={noblesRef} initialCount={0} size={56} maxCount={6} />
       </div>
 
       <div
