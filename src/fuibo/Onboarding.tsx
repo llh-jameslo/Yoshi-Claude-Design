@@ -3009,27 +3009,20 @@ function MeetStep({
           <WarmthSpinner warmth={warmth} onWarmthChange={setWarmth} />
 
           {showDragHint && (
-            <button
-              type="button"
-              aria-label="Drag to explore. Tap to dismiss hint."
-              onClick={(e) => {
-                e.stopPropagation()
-                dismissDragHint()
-              }}
-              onPointerDown={(e) => e.stopPropagation()}
+            <div
+              aria-hidden
               style={{
                 position: 'absolute',
                 inset: 0,
                 zIndex: 8,
-                border: 'none',
                 borderRadius: 28,
                 padding: 0,
-                cursor: 'pointer',
                 background: 'rgba(20,17,26,0.42)',
                 animation: 'meetHintScrimIn .35s ease both',
-                fontFamily: 'inherit',
                 boxSizing: 'border-box',
                 color: '#fff',
+                // Let the first touch start a drag — stage dismisses the hint on pointerdown.
+                pointerEvents: 'none',
               }}
             >
               {/* Up / down — left, vertically centered, copy left-aligned */}
@@ -3118,7 +3111,7 @@ function MeetStep({
                   animation="meetHintArrowX 1.1s ease-in-out infinite"
                 />
               </div>
-            </button>
+            </div>
           )}
         </div>
 

@@ -319,6 +319,41 @@ function PencilIcon({ color = '#17151C' }: { color?: string }) {
   )
 }
 
+function BgAdjustHintArrow({ dir }: { dir: 'up' | 'down' }) {
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: 'inline-flex',
+        width: 28,
+        height: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+        animation:
+          dir === 'up'
+            ? 'meetHintArrowYUp 1.1s ease-in-out infinite'
+            : 'meetHintArrowY 1.1s ease-in-out infinite',
+      }}
+    >
+      <svg
+        width="26"
+        height="26"
+        viewBox="0 0 26 26"
+        fill="none"
+        style={{ transform: dir === 'up' ? 'rotate(-90deg)' : 'rotate(90deg)' }}
+      >
+        <path
+          d="M5 13h15.5M14.2 6.5 20.5 13l-6.3 6.5"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  )
+}
+
 function ThinkingIcon() {
   return (
     <svg
@@ -450,6 +485,7 @@ export function FuiboFlower({
   const [draft, setDraft] = useState('')
   const [chatBgY, setChatBgY] = useState(DEFAULT_CHAT_BG_Y)
   const [bgEditing, setBgEditing] = useState(false)
+  const [bgHint, setBgHint] = useState(true)
   const [chatControlColor, setChatControlColor] = useState<'#FFFFFF' | '#17151C'>(
     '#17151C',
   )
@@ -610,6 +646,7 @@ export function FuiboFlower({
 
   const beginBgEdit = () => {
     setBgEditing(true)
+    setBgHint(true)
     setKb(false)
     setAttach(false)
     setOpen(false)
@@ -618,6 +655,7 @@ export function FuiboFlower({
   const saveBgEdit = () => {
     saveChatBgY(chatBgKey, chatBgY)
     setBgEditing(false)
+    setBgHint(true)
     bgDrag.current = null
   }
 
@@ -625,6 +663,7 @@ export function FuiboFlower({
     if (!bgEditing) return
     e.currentTarget.setPointerCapture(e.pointerId)
     bgDrag.current = { startClientY: e.clientY, startY: chatBgY }
+    setBgHint(false)
   }
 
   const onBgPointerMove = (e: ReactPointerEvent<HTMLDivElement>) => {
@@ -1061,10 +1100,53 @@ export function FuiboFlower({
             borderRadius: '0 0 28px 28px',
             cursor: 'ns-resize',
             touchAction: 'none',
-            background:
-              'linear-gradient(to bottom, rgba(255,255,255,0.08), rgba(20,17,26,0.18))',
+            background: 'transparent',
           }}
-        />
+        >
+          {bgHint && (
+            <div
+              aria-hidden
+              style={{
+                position: 'absolute',
+                left: '50%',
+                bottom: 28,
+                transform: 'translateX(-50%)',
+                display: 'flex',
+                flexDirection: 'column',
+                alignItems: 'center',
+                gap: 8,
+                color: '#fff',
+                textAlign: 'center',
+                textShadow: '0 2px 12px rgba(0,0,0,0.45)',
+                animation: 'meetHintScrimIn .35s ease both',
+                pointerEvents: 'none',
+              }}
+            >
+              <BgAdjustHintArrow dir="up" />
+              <div>
+                <div
+                  style={{
+                    fontSize: 14,
+                    fontWeight: 600,
+                    letterSpacing: '-0.02em',
+                  }}
+                >
+                  Drag up / down
+                </div>
+                <div
+                  style={{
+                    marginTop: 4,
+                    fontSize: 12,
+                    opacity: 0.75,
+                  }}
+                >
+                  Adjust position
+                </div>
+              </div>
+              <BgAdjustHintArrow dir="down" />
+            </div>
+          )}
+        </div>
       )}
 
       <div
@@ -1090,9 +1172,13 @@ export function FuiboFlower({
           paddingRight: 18,
           paddingBottom: 16,
           transition: `bottom ${kbMotion}`,
-          WebkitMaskImage:
-            'linear-gradient(to bottom,transparent 122px,#000 312px)',
-          maskImage: 'linear-gradient(to bottom,transparent 122px,#000 312px)',
+          // Edit mode: only soften bubbles that sit over the hero image
+          WebkitMaskImage: bgEditing
+            ? 'linear-gradient(to bottom, transparent 0px, transparent 160px, rgba(0,0,0,0.18) 240px, rgba(0,0,0,0.55) 290px, #000 330px)'
+            : 'linear-gradient(to bottom,transparent 122px,#000 312px)',
+          maskImage: bgEditing
+            ? 'linear-gradient(to bottom, transparent 0px, transparent 160px, rgba(0,0,0,0.18) 240px, rgba(0,0,0,0.55) 290px, #000 330px)'
+            : 'linear-gradient(to bottom,transparent 122px,#000 312px)',
           ...(compact
             ? {
                 overscrollBehavior: 'contain' as const,
@@ -1468,7 +1554,7 @@ export function FuiboFlower({
             : `10px 16px ${composerPb}px`,
           background: '#EDECF2',
           pointerEvents: bgEditing ? 'none' : 'auto',
-          opacity: bgEditing ? 0.4 : 1,
+          opacity: 1,
           transition: compact
             ? `bottom ${kbMotion}`
             : `padding ${kbMotion}`,
