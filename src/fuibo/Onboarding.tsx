@@ -2126,9 +2126,11 @@ function RelationshipStep({
                           fontSize: 13,
                           fontWeight: 400,
                           lineHeight: 1.25,
-                          boxShadow: '0 6px 18px rgba(0,0,0,0.12)',
+                          boxShadow:
+                            '0 4px 14px rgba(0,0,0,0.28), 0 1px 3px rgba(0,0,0,0.18)',
                           backdropFilter: 'blur(8px)',
                           position: 'relative',
+                          textShadow: '0 1px 0 rgba(255,255,255,0.4)',
                         }}
                       >
                         {bubble}
@@ -2142,6 +2144,7 @@ function RelationshipStep({
                             height: 9,
                             background: 'rgba(255,255,255,0.94)',
                             clipPath: 'polygon(0 0, 100% 0, 0 100%)',
+                            filter: 'drop-shadow(0 3px 4px rgba(0,0,0,0.22))',
                           }}
                         />
                       </div>
@@ -2159,7 +2162,13 @@ function RelationshipStep({
                       color: '#fff',
                     }}
                   >
-                    <div style={{ fontSize: 28, fontWeight: 600 }}>
+                    <div
+                      style={{
+                        fontSize: 28,
+                        fontWeight: 600,
+                        textShadow: '0 2px 10px rgba(0,0,0,0.55), 0 1px 2px rgba(0,0,0,0.4)',
+                      }}
+                    >
                       {type.title}
                     </div>
                     <div
@@ -2168,6 +2177,7 @@ function RelationshipStep({
                         fontSize: 15,
                         opacity: 0.9,
                         fontWeight: 400,
+                        textShadow: '0 1px 8px rgba(0,0,0,0.5), 0 1px 2px rgba(0,0,0,0.35)',
                       }}
                     >
                       {type.subtitle}
