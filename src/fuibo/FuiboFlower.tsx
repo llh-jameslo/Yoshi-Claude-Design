@@ -465,7 +465,7 @@ export function FuiboFlower({
     ? 'calc(var(--nav-top, 12px) + 72px)'
     : TITLE_TOP
   // Raise image + bottom actions together (larger = shorter hero)
-  const homeLift = 24
+  const homeLift = 8
   const homeBottom = compact
     ? `calc(${20 + homeLift}px + var(--safe-bottom, 0px))`
     : 34 + homeLift
@@ -1591,7 +1591,7 @@ export function FuiboFlower({
     >
       <iframe
         title={`Mowing with ${yoshi.name}`}
-        src={`/mowing/mowing_with_yoshi.html?embed=1&avatar=${encodeURIComponent(yoshi.image)}&name=${encodeURIComponent(yoshi.name)}`}
+        src={`/mowing/mowing_with_yoshi.html?embed=1${compact ? '' : '&framed=1'}&avatar=${encodeURIComponent(yoshi.image)}&name=${encodeURIComponent(yoshi.name)}`}
         style={{
           position: 'absolute',
           inset: 0,

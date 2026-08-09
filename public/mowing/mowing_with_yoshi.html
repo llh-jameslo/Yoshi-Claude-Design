@@ -6,9 +6,13 @@
 <meta name="theme-color" content="#4d9fdd" />
 <title>Mowing with Yoshi</title>
 <script>
-  if (new URLSearchParams(location.search).has('embed') || window.parent !== window) {
-    document.documentElement.classList.add('embed');
-  }
+  (function () {
+    const params = new URLSearchParams(location.search);
+    const embedded = params.has('embed') || window.parent !== window;
+    if (embedded) document.documentElement.classList.add('embed');
+    // Desktop iPhone frame only — mobile Safari is already full-bleed.
+    if (params.has('framed')) document.documentElement.classList.add('framed');
+  })();
 </script>
 <style>
   * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -18,8 +22,13 @@
     --chrome-bottom: env(safe-area-inset-bottom, 0px);
     --chrome-left: env(safe-area-inset-left, 0px);
   }
-  /* Phone-frame embed: clear iOS status bar + home indicator */
+  /* Mobile / full-bleed embed: use real safe-area (not the fake status bar). */
   html.embed {
+    --chrome-top: max(12px, env(safe-area-inset-top, 0px));
+    --chrome-bottom: max(10px, env(safe-area-inset-bottom, 0px));
+  }
+  /* Desktop phone-frame embed: clear fake status bar + home indicator */
+  html.embed.framed {
     --chrome-top: 62px;
     --chrome-bottom: 34px;
   }

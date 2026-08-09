@@ -3,6 +3,7 @@ import { useRef, type MouseEvent, type UIEvent } from 'react'
 const STRIDE = 330
 const CARD_W = 316
 const CARD_H = 168
+const SNAP = 'x mandatory'
 
 const CARDS = [
   {
@@ -71,6 +72,7 @@ export function TopicDrawer({
     const el = railRef.current
     if (!el) return
     el.style.cursor = 'grab'
+    el.style.scrollSnapType = SNAP
     const next = Math.max(0, Math.min(2, Math.round(el.scrollLeft / STRIDE)))
     el.scrollTo({ left: next * STRIDE, behavior: 'smooth' })
   }
@@ -86,6 +88,8 @@ export function TopicDrawer({
   const onMouseDown = (e: MouseEvent<HTMLDivElement>) => {
     const el = railRef.current
     if (!el) return
+    // Desktop drag: disable snap so scrubbing stays continuous until release
+    el.style.scrollSnapType = 'none'
     drag.current = { x: e.clientX, left: el.scrollLeft }
     setDragMoved(false)
     el.style.cursor = 'grabbing'
@@ -104,6 +108,18 @@ export function TopicDrawer({
     if (!drag.current) return
     drag.current = null
     snap()
+  }
+
+  // Native touch scroll on iOS doesn't fire mouse handlers — CSS snap covers it.
+  const onTouchStart = () => {
+    const el = railRef.current
+    if (!el) return
+    el.style.scrollSnapType = SNAP
+    setDragMoved(false)
+  }
+
+  const onTouchMove = () => {
+    setDragMoved(true)
   }
 
   const dots = [0, 1, 2].map((i) => (
@@ -139,6 +155,8 @@ export function TopicDrawer({
         onMouseMove={onMouseMove}
         onMouseUp={onMouseUp}
         onMouseLeave={onMouseUp}
+        onTouchStart={onTouchStart}
+        onTouchMove={onTouchMove}
         style={{
           display: 'flex',
           overflowX: 'auto',
@@ -149,6 +167,8 @@ export function TopicDrawer({
           userSelect: 'none',
           scrollbarWidth: 'none',
           msOverflowStyle: 'none',
+          scrollSnapType: SNAP,
+          WebkitOverflowScrolling: 'touch',
         }}
       >
         {CARDS.map((card, i) => (
@@ -172,6 +192,8 @@ export function TopicDrawer({
               cursor: 'pointer',
               font: 'inherit',
               textAlign: 'left',
+              scrollSnapAlign: 'center',
+              scrollSnapStop: 'always',
             }}
           >
             <TopicCard {...card} />
