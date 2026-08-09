@@ -322,8 +322,8 @@ function PencilIcon({ color = '#17151C' }: { color?: string }) {
 function ThinkingIcon() {
   return (
     <svg
-      width="36"
-      height="36"
+      width="28"
+      height="28"
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden
@@ -922,11 +922,11 @@ export function FuiboFlower({
           zIndex: 8,
           display: 'flex',
           alignItems: 'center',
-          gap: 22,
+          gap: 28,
           background: '#FFFFFF',
           borderRadius: 24,
           border: '1.5px solid #17151C',
-          padding: '8px 8px 8px 18px',
+          padding: '8px 12px 8px 18px',
           fontSize: 17,
           lineHeight: 1.25,
           fontFamily: 'inherit',
@@ -951,7 +951,7 @@ export function FuiboFlower({
             justifyContent: 'center',
           }}
         >
-          <svg width="18" height="18" viewBox="0 0 14 14" fill="none">
+          <svg width="24" height="24" viewBox="0 0 14 14" fill="none">
             <path
               d="M3 7h7.5M7.5 3.5L11 7l-3.5 3.5"
               stroke="#fff"
