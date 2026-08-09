@@ -1,14 +1,28 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
 import { useCompactViewport } from '../hooks/useCompactViewport'
+import { isTextField } from '../lib/fakeKeyboardInput'
 import { IOSStatusBar } from './IOSStatusBar'
 import { IOSKeyboard } from './IOSKeyboard'
+
+const KB_ANIM_MS = 340
+const KB_HEIGHT = 336
 
 type Props = {
   children: ReactNode
   width?: number
   height?: number
   dark?: boolean
+  /**
+   * Optional override. When omitted on desktop, the fake keyboard follows
+   * text-field focus inside the frame (show on focus, hide on outside tap).
+   */
   keyboard?: boolean
+}
+
+function shouldKeepKeyboard(t: Element) {
+  return Boolean(
+    t.closest('[data-ios-keyboard], [data-keep-keyboard], input, textarea'),
+  )
 }
 
 export function IOSDevice({
@@ -16,12 +30,97 @@ export function IOSDevice({
   width = 402,
   height = 874,
   dark = false,
-  keyboard = false,
+  keyboard,
 }: Props) {
   const compact = useCompactViewport()
+  const rootRef = useRef<HTMLDivElement>(null)
+  const [inputFocused, setInputFocused] = useState(false)
+  const [kbMounted, setKbMounted] = useState(false)
+  const [kbOpen, setKbOpen] = useState(false)
+
+  const wantKeyboard =
+    !compact && (keyboard !== undefined ? keyboard : inputFocused)
+
+  useEffect(() => {
+    if (compact) {
+      setInputFocused(false)
+      return
+    }
+    const root = rootRef.current
+    if (!root) return
+
+    const onFocusIn = (e: FocusEvent) => {
+      if (isTextField(e.target)) setInputFocused(true)
+    }
+
+    const onFocusOut = (e: FocusEvent) => {
+      const next = e.relatedTarget as Node | null
+      if (next && root.contains(next) && isTextField(next)) {
+        setInputFocused(true)
+        return
+      }
+      // Let keyboard / keep-keyboard pointer handlers run first
+      window.setTimeout(() => {
+        const active = document.activeElement
+        if (active && root.contains(active) && isTextField(active)) {
+          setInputFocused(true)
+          return
+        }
+        setInputFocused(false)
+      }, 0)
+    }
+
+    const onPointerDown = (e: PointerEvent) => {
+      const t = e.target as Element | null
+      if (!t || !root.contains(t)) return
+
+      // Taps on the field, its chrome, or the keyboard must never dismiss
+      if (shouldKeepKeyboard(t)) {
+        const keepHost = t.closest('[data-keep-keyboard]')
+        if (keepHost && !isTextField(t) && !t.closest('input, textarea')) {
+          const field = keepHost.querySelector('input, textarea')
+          if (field instanceof HTMLElement) {
+            e.preventDefault()
+            field.focus()
+          }
+        }
+        return
+      }
+
+      const active = document.activeElement
+      if (active && root.contains(active) && isTextField(active)) {
+        active.blur()
+        setInputFocused(false)
+      }
+    }
+
+    root.addEventListener('focusin', onFocusIn)
+    root.addEventListener('focusout', onFocusOut)
+    root.addEventListener('pointerdown', onPointerDown)
+    return () => {
+      root.removeEventListener('focusin', onFocusIn)
+      root.removeEventListener('focusout', onFocusOut)
+      root.removeEventListener('pointerdown', onPointerDown)
+    }
+  }, [compact])
+
+  // Smooth mount → slide in / slide out → unmount
+  useEffect(() => {
+    if (wantKeyboard) {
+      setKbMounted(true)
+      const id = window.requestAnimationFrame(() => {
+        window.requestAnimationFrame(() => setKbOpen(true))
+      })
+      return () => window.cancelAnimationFrame(id)
+    }
+    setKbOpen(false)
+    const t = window.setTimeout(() => setKbMounted(false), KB_ANIM_MS)
+    return () => window.clearTimeout(t)
+  }, [wantKeyboard])
 
   return (
     <div
+      ref={rootRef}
       className={compact ? 'ios-device ios-device--compact' : 'ios-device'}
       style={{
         width: compact ? '100%' : width,
@@ -37,7 +136,6 @@ export function IOSDevice({
           : '0 40px 80px rgba(0,0,0,0.18), 0 0 0 1px rgba(0,0,0,0.12)',
         fontFamily: '-apple-system, system-ui, sans-serif',
         WebkitFontSmoothing: 'antialiased',
-        // Compact: tighter chrome + content top so pages aren’t wasted below the progress bar.
         ['--chrome-top' as string]: compact
           ? 'max(8px, env(safe-area-inset-top, 0px))'
           : '54px',
@@ -47,7 +145,6 @@ export function IOSDevice({
         ['--flow-pad-top' as string]: compact
           ? 'calc(var(--chrome-top) + 44px)'
           : '110px',
-        // Mobile: sit CTAs closer to the home edge; desktop keeps mock home-indicator room.
         ['--action-bottom' as string]: compact ? '14px' : '48px',
         ['--safe-bottom' as string]: compact
           ? 'env(safe-area-inset-bottom, 0px)'
@@ -87,7 +184,34 @@ export function IOSDevice({
         <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
           {children}
         </div>
-        {!compact && keyboard ? <IOSKeyboard dark={dark} /> : null}
+        {!compact && kbMounted ? (
+          <div
+            aria-hidden={!kbOpen}
+            style={{
+              flex: 'none',
+              height: kbOpen ? KB_HEIGHT : 0,
+              // Clip only while collapsing so key-preview bubbles can paint above keys
+              overflow: kbOpen ? 'visible' : 'hidden',
+              transition: `height ${KB_ANIM_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
+              willChange: 'height',
+              position: 'relative',
+              zIndex: 20,
+            }}
+          >
+            <div
+              style={{
+                height: KB_HEIGHT,
+                transform: kbOpen ? 'translateY(0)' : 'translateY(18%)',
+                opacity: kbOpen ? 1 : 0.85,
+                transition: `transform ${KB_ANIM_MS}ms cubic-bezier(0.32, 0.72, 0, 1), opacity ${KB_ANIM_MS * 0.85}ms ease`,
+                willChange: 'transform, opacity',
+                overflow: 'visible',
+              }}
+            >
+              <IOSKeyboard dark={dark} />
+            </div>
+          </div>
+        ) : null}
       </div>
       <div
         className="ios-device-chrome ios-device-home"

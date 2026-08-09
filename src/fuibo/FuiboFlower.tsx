@@ -10,7 +10,8 @@ import { IOSDevice } from '../components/IOSDevice'
 import { useCompactViewport } from '../hooks/useCompactViewport'
 import { TopicDrawer } from './TopicDrawer'
 import { SwitchYoshi } from './SwitchYoshi'
-import { DEFAULT_YOSHI_ID, getYoshi } from './yoshis'
+import { getYoshi } from './yoshis'
+import { toSwitchYoshi, type OwnedYoshi } from './ownedYoshis'
 
 type Msg =
   | { type: 'them'; text: string }
@@ -22,6 +23,8 @@ const OPENERS = [
   "Here's the roadmap thing you flagged. Three items shipped, two slipped to next sprint. Want me to flag which ones are blocking you?",
   "Circling back on this one — you never told me how it went. So? How'd it go?",
 ]
+
+const HOME_TOPIC = 'Wanna see the baby version of your rabbit?'
 
 const INITIAL_THREAD: Msg[] = [
   {
@@ -146,28 +149,19 @@ function PencilIcon({ color = '#17151C' }: { color?: string }) {
 
 function ChatBubbleIcon() {
   return (
-    <div
-      style={{
-        position: 'relative',
-        width: 23,
-        height: 18,
-        borderRadius: 8,
-        background: '#FFF8F3',
-      }}
+    <svg
+      width="36"
+      height="36"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      style={{ transform: 'translate(-1px, 2px)' }}
     >
-      <div
-        style={{
-          position: 'absolute',
-          left: 4,
-          bottom: -3,
-          width: 7,
-          height: 7,
-          background: '#FFF8F3',
-          borderRadius: 1,
-          transform: 'rotate(45deg)',
-        }}
+      <path
+        d="M4 5.8C4 4.25 5.25 3 6.8 3h10.4C18.75 3 20 4.25 20 5.8v7.4c0 1.55-1.25 2.8-2.8 2.8H11.2l-3.85 3.15c-.4.33-1 .04-1-.48V16H6.8C5.25 16 4 14.75 4 13.2V5.8Z"
+        fill="#FFF8F3"
       />
-    </div>
+    </svg>
   )
 }
 
@@ -237,46 +231,41 @@ function BackArrow({ color = '#17151C' }: { color?: string }) {
 }
 
 type FuiboFlowerProps = {
-  initialYoshiId?: string
-  /** Custom display name for the Yoshi chosen during onboarding */
-  nameOverride?: string
-  /** Portrait from the relationship type chosen in onboarding */
-  imageOverride?: string
+  userName?: string
+  yoshis: OwnedYoshi[]
+  activeYoshiId: string
+  emptySlots?: number
+  onSelectYoshi?: (id: string) => void
   /** Temporary: homepage menu restarts onboarding for testing */
   onRestartOnboarding?: () => void
+  /** Create another Yoshi from Switch (short onboarding path) */
+  onAddYoshi?: () => void
 }
 
 export function FuiboFlower({
-  initialYoshiId = DEFAULT_YOSHI_ID,
-  nameOverride,
-  imageOverride,
+  userName = '',
+  yoshis,
+  activeYoshiId,
+  emptySlots = 0,
+  onSelectYoshi,
   onRestartOnboarding,
-}: FuiboFlowerProps = {}) {
+  onAddYoshi,
+}: FuiboFlowerProps) {
   const [screen, setScreen] = useState<'home' | 'chat' | 'game' | 'switch'>('home')
-  const [yoshiId, setYoshiId] = useState(initialYoshiId)
-  const baseYoshi = getYoshi(yoshiId)
-  const customYoshi = useMemo(() => {
-    if (!nameOverride && !imageOverride) return undefined
-    const base = getYoshi(initialYoshiId)
-    const name = nameOverride?.trim()
-    const image = imageOverride
-    const nameCustom = Boolean(name && name !== base.name)
-    const imageCustom = Boolean(image && image !== base.image)
-    if (!nameCustom && !imageCustom) return undefined
-    return {
-      id: initialYoshiId,
-      name: nameCustom ? name : undefined,
-      image: imageCustom ? image : undefined,
-    }
-  }, [initialYoshiId, nameOverride, imageOverride])
-  const yoshi =
-    customYoshi && yoshiId === customYoshi.id
-      ? {
-          ...baseYoshi,
-          name: customYoshi.name?.trim() || baseYoshi.name,
-          image: customYoshi.image || baseYoshi.image,
-        }
-      : baseYoshi
+  const activeOwned =
+    yoshis.find((y) => y.id === activeYoshiId) ?? yoshis[0]
+  const template = getYoshi(activeOwned?.templateId ?? 'fuibo-flower')
+  const yoshi = {
+    id: activeOwned?.id ?? template.id,
+    name: activeOwned?.name ?? template.name,
+    image: activeOwned?.image ?? template.image,
+    accent: template.accent,
+  }
+  const switchList = useMemo(
+    () => yoshis.map(toSwitchYoshi),
+    [yoshis],
+  )
+  const knownUserName = userName.trim() || 'friend'
   const [open, setOpen] = useState(false)
   const [seen, setSeen] = useState(false)
   const [idx, setIdx] = useState(0)
@@ -374,17 +363,21 @@ export function FuiboFlower({
     return () => window.removeEventListener('message', onMessage)
   }, [])
 
-  const startTopic = (i: number) => {
-    if (dragMoved.current) {
-      dragMoved.current = false
-      return
-    }
+  const startTopicWithText = (text: string) => {
     setScreen('chat')
     setOpen(false)
     setSeen(true)
     setKb(false)
     setAttach(false)
-    setThread((t) => [...t, { type: 'divider' }, { type: 'them', text: OPENERS[i] }])
+    setThread((t) => [...t, { type: 'divider' }, { type: 'them', text }])
+  }
+
+  const startTopic = (i: number) => {
+    if (dragMoved.current) {
+      dragMoved.current = false
+      return
+    }
+    startTopicWithText(OPENERS[i])
   }
 
   const toggle = () => {
@@ -637,7 +630,10 @@ export function FuiboFlower({
         )}
       </div>
 
-      <div
+      <button
+        type="button"
+        onClick={() => startTopicWithText(HOME_TOPIC)}
+        aria-label={`Start chat topic: ${HOME_TOPIC}`}
         style={{
           position: 'absolute',
           left: 30,
@@ -646,21 +642,27 @@ export function FuiboFlower({
           zIndex: 8,
           background: '#FFFFFF',
           borderRadius: '14px 14px 14px 4px',
+          border: 'none',
           padding: '12px 15px',
           fontSize: 14,
           lineHeight: 1.4,
+          fontFamily: 'inherit',
+          textAlign: 'left',
           color: '#2A2620',
           boxShadow: '0 10px 26px rgba(26,24,20,.28)',
+          cursor: 'pointer',
         }}
       >
-        Wanna see the baby version of your rabbit?
-      </div>
+        {HOME_TOPIC}
+      </button>
 
       <div
         onClick={() => {
           setScreen('chat')
           setOpen(false)
         }}
+        role="button"
+        aria-label={`Chat with ${yoshi.name}, ${knownUserName}`}
         style={{
           position: 'absolute',
           right: 30,
@@ -1138,6 +1140,7 @@ export function FuiboFlower({
       )}
 
       <div
+        data-keep-keyboard
         style={{
           position: 'absolute',
           left: 0,
@@ -1156,6 +1159,7 @@ export function FuiboFlower({
         }}
       >
         <div
+          data-keep-keyboard
           style={{
             flex: 1,
             display: 'flex',
@@ -1196,6 +1200,7 @@ export function FuiboFlower({
               setKb(true)
               setAttach(false)
             }}
+            onBlur={() => setKb(false)}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
@@ -1280,13 +1285,15 @@ export function FuiboFlower({
 
   const switchScreen = (
     <SwitchYoshi
-      selectedId={yoshiId}
-      customYoshi={customYoshi}
+      yoshis={switchList}
+      selectedId={yoshi.id}
+      emptySlots={emptySlots}
       onBack={() => setScreen('home')}
       onSelect={(id) => {
-        setYoshiId(id)
+        onSelectYoshi?.(id)
         setScreen('home')
       }}
+      onAddYoshi={onAddYoshi}
     />
   )
 

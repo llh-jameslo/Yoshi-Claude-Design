@@ -1,10 +1,200 @@
-import type { ReactNode } from 'react'
+import { useEffect, useRef, useState, type ReactNode } from 'react'
+import {
+  deleteFromFocusedField,
+  insertIntoFocusedField,
+  pressEnterOnFocusedField,
+} from '../lib/fakeKeyboardInput'
 
 type Props = {
   dark?: boolean
 }
 
+type KeyOpts = {
+  w?: number
+  flex?: boolean
+  ret?: boolean
+  fs?: number
+  k: string
+  action?: 'char' | 'space' | 'del' | 'ret' | 'shift' | 'noop'
+  char?: string
+}
+
+type Edge = 'left' | 'right' | 'center'
+
+const PREVIEW_MIN_MS = 90
+
+function KeyPreview({
+  label,
+  edge,
+  dark,
+}: {
+  label: string
+  edge: Edge
+  dark: boolean
+}) {
+  const bg = dark ? '#636366' : '#fff'
+  const color = dark ? '#fff' : '#111'
+  const shiftX = edge === 'left' ? '0%' : edge === 'right' ? '-100%' : '-50%'
+  const left = edge === 'left' ? '0%' : edge === 'right' ? '100%' : '50%'
+  const stemAlign =
+    edge === 'left' ? 'flex-start' : edge === 'right' ? 'flex-end' : 'center'
+
+  return (
+    <div
+      aria-hidden
+      style={{
+        position: 'absolute',
+        left,
+        bottom: 34,
+        transform: `translateX(${shiftX})`,
+        zIndex: 40,
+        pointerEvents: 'none',
+        filter: dark
+          ? 'drop-shadow(0 4px 10px rgba(0,0,0,0.35))'
+          : 'drop-shadow(0 3px 8px rgba(0,0,0,0.18))',
+      }}
+    >
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: stemAlign,
+          transformOrigin:
+            edge === 'left'
+              ? 'bottom left'
+              : edge === 'right'
+                ? 'bottom right'
+                : 'bottom center',
+          animation: 'iosKeyPreviewIn 70ms ease-out',
+        }}
+      >
+        <div
+          style={{
+            width: 58,
+            height: 58,
+            borderRadius: 10,
+            background: bg,
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontFamily: '-apple-system, "SF Compact", system-ui',
+            fontSize: 34,
+            fontWeight: 400,
+            color,
+            lineHeight: 1,
+          }}
+        >
+          {label}
+        </div>
+        {/* Stem that bridges popup → key, biased for edge letters */}
+        <div
+          style={{
+            width: edge === 'center' ? 36 : 48,
+            height: 18,
+            marginTop: -1,
+            background: bg,
+            clipPath:
+              edge === 'left'
+                ? 'polygon(0 0, 100% 0, 72% 100%, 0 100%)'
+                : edge === 'right'
+                  ? 'polygon(0 0, 100% 0, 100% 100%, 28% 100%)'
+                  : 'polygon(8% 0, 92% 0, 100% 100%, 0 100%)',
+          }}
+        />
+      </div>
+    </div>
+  )
+}
+
+function LetterKey({
+  char,
+  shifted,
+  edge,
+  dark,
+  glyph,
+  keyBg,
+  onType,
+}: {
+  char: string
+  shifted: boolean
+  edge: Edge
+  dark: boolean
+  glyph: string
+  keyBg: string
+  onType: (ch: string) => void
+}) {
+  const [preview, setPreview] = useState<string | null>(null)
+  const hideTimer = useRef<number | null>(null)
+  const downAt = useRef(0)
+  const label = shifted ? char.toUpperCase() : char.toLowerCase()
+
+  useEffect(() => {
+    return () => {
+      if (hideTimer.current != null) window.clearTimeout(hideTimer.current)
+    }
+  }, [])
+
+  const hide = () => {
+    const elapsed = performance.now() - downAt.current
+    const wait = Math.max(0, PREVIEW_MIN_MS - elapsed)
+    if (hideTimer.current != null) window.clearTimeout(hideTimer.current)
+    hideTimer.current = window.setTimeout(() => {
+      setPreview(null)
+      hideTimer.current = null
+    }, wait)
+  }
+
+  return (
+    <button
+      type="button"
+      tabIndex={-1}
+      aria-label={label}
+      onPointerDown={(e) => {
+        e.preventDefault()
+        e.currentTarget.setPointerCapture(e.pointerId)
+        if (hideTimer.current != null) {
+          window.clearTimeout(hideTimer.current)
+          hideTimer.current = null
+        }
+        downAt.current = performance.now()
+        setPreview(label)
+        onType(char)
+      }}
+      onPointerUp={hide}
+      onPointerCancel={hide}
+      style={{
+        position: 'relative',
+        height: 42,
+        borderRadius: 8.5,
+        flex: 1,
+        minWidth: 0,
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        background: preview
+          ? dark
+            ? 'rgba(255,255,255,0.34)'
+            : '#fff'
+          : keyBg,
+        boxShadow: '0 1px 0 rgba(0,0,0,0.075)',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        fontFamily: '-apple-system, "SF Compact", system-ui',
+        fontSize: 25,
+        fontWeight: 458,
+        color: glyph,
+        zIndex: preview ? 30 : 1,
+      }}
+    >
+      {label}
+      {preview ? <KeyPreview label={preview} edge={edge} dark={dark} /> : null}
+    </button>
+  )
+}
+
 export function IOSKeyboard({ dark = false }: Props) {
+  const [shifted, setShifted] = useState(false)
   const glyph = dark ? 'rgba(255,255,255,0.7)' : '#595959'
   const sugg = dark ? 'rgba(255,255,255,0.6)' : '#333'
   const keyBg = dark ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.85)'
@@ -46,40 +236,89 @@ export function IOSKeyboard({ dark = false }: Props) {
     ),
   }
 
-  const key = (
-    content: ReactNode,
-    {
-      w,
-      flex,
-      ret,
-      fs = 25,
-      k,
-    }: { w?: number; flex?: boolean; ret?: boolean; fs?: number; k: string },
-  ) => (
-    <div
-      key={k}
+  const typeChar = (ch: string) => {
+    insertIntoFocusedField(shifted ? ch.toUpperCase() : ch.toLowerCase())
+    if (shifted) setShifted(false)
+  }
+
+  const runAction = (opts: KeyOpts) => {
+    const action = opts.action ?? 'char'
+    if (action === 'shift') {
+      setShifted((s) => !s)
+      return
+    }
+    if (action === 'noop') return
+    if (action === 'del') {
+      deleteFromFocusedField()
+      return
+    }
+    if (action === 'ret') {
+      pressEnterOnFocusedField()
+      return
+    }
+    if (action === 'space') {
+      insertIntoFocusedField(' ')
+      return
+    }
+    const ch = opts.char ?? ''
+    if (!ch) return
+    typeChar(ch)
+  }
+
+  const key = (content: ReactNode, opts: KeyOpts) => (
+    <button
+      key={opts.k}
+      type="button"
+      tabIndex={-1}
+      aria-label={
+        opts.action === 'del'
+          ? 'Delete'
+          : opts.action === 'ret'
+            ? 'Return'
+            : opts.action === 'space'
+              ? 'Space'
+              : opts.action === 'shift'
+                ? 'Shift'
+                : typeof content === 'string'
+                  ? content
+                  : opts.k
+      }
+      onPointerDown={(e) => {
+        e.preventDefault()
+        runAction(opts)
+      }}
       style={{
         height: 42,
         borderRadius: 8.5,
-        flex: flex ? 1 : undefined,
-        width: w,
+        flex: opts.flex ? 1 : undefined,
+        width: opts.w,
         minWidth: 0,
-        background: ret ? '#08f' : keyBg,
+        border: 'none',
+        padding: 0,
+        cursor: 'pointer',
+        background:
+          opts.ret
+            ? '#08f'
+            : opts.action === 'shift' && shifted
+              ? dark
+                ? 'rgba(255,255,255,0.4)'
+                : '#fff'
+              : keyBg,
         boxShadow: '0 1px 0 rgba(0,0,0,0.075)',
         display: 'flex',
         alignItems: 'center',
         justifyContent: 'center',
         fontFamily: '-apple-system, "SF Compact", system-ui',
-        fontSize: fs,
+        fontSize: opts.fs ?? 25,
         fontWeight: 458,
-        color: ret ? '#fff' : glyph,
+        color: opts.ret ? '#fff' : glyph,
       }}
     >
       {content}
-    </div>
+    </button>
   )
 
-  const row = (keys: string[], pad = 0) => (
+  const letterRow = (keys: string[], pad = 0) => (
     <div
       style={{
         display: 'flex',
@@ -88,17 +327,37 @@ export function IOSKeyboard({ dark = false }: Props) {
         padding: `0 ${pad}px`,
       }}
     >
-      {keys.map((l) => key(l, { flex: true, k: l }))}
+      {keys.map((l, i) => {
+        const edge: Edge =
+          i === 0 ? 'left' : i === keys.length - 1 ? 'right' : 'center'
+        return (
+          <LetterKey
+            key={l}
+            char={l}
+            shifted={shifted}
+            edge={edge}
+            dark={dark}
+            glyph={glyph}
+            keyBg={keyBg}
+            onType={typeChar}
+          />
+        )
+      })}
     </div>
   )
 
   return (
     <div
+      data-ios-keyboard
+      onPointerDown={(e) => {
+        // Keep the focused field alive for taps on gaps between keys
+        e.preventDefault()
+      }}
       style={{
         position: 'relative',
         zIndex: 15,
         borderRadius: 27,
-        overflow: 'hidden',
+        overflow: 'visible',
         padding: '11px 0 2px',
         display: 'flex',
         flexDirection: 'column',
@@ -108,11 +367,18 @@ export function IOSKeyboard({ dark = false }: Props) {
           : '0 -1px 6px rgba(0,0,0,0.018), 0 -3px 20px rgba(0,0,0,0.012)',
       }}
     >
+      <style>
+        {`@keyframes iosKeyPreviewIn {
+          from { opacity: 0; transform: translateY(5px) scale(0.9); }
+          to { opacity: 1; transform: translateY(0) scale(1); }
+        }`}
+      </style>
       <div
         style={{
           position: 'absolute',
           inset: 0,
           borderRadius: 27,
+          overflow: 'hidden',
           backdropFilter: 'blur(12px) saturate(180%)',
           WebkitBackdropFilter: 'blur(12px) saturate(180%)',
           background: dark ? 'rgba(120,120,128,0.14)' : 'rgba(255,255,255,0.25)',
@@ -149,7 +415,13 @@ export function IOSKeyboard({ dark = false }: Props) {
             {i > 0 && (
               <div style={{ width: 1, height: 25, background: '#ccc', opacity: 0.3 }} />
             )}
-            <div
+            <button
+              type="button"
+              tabIndex={-1}
+              onPointerDown={(e) => {
+                e.preventDefault()
+                insertIntoFocusedField(w.replace(/^"|"$/g, '') + ' ')
+              }}
               style={{
                 flex: 1,
                 textAlign: 'center',
@@ -158,10 +430,14 @@ export function IOSKeyboard({ dark = false }: Props) {
                 color: sugg,
                 letterSpacing: -0.43,
                 lineHeight: '22px',
+                border: 'none',
+                background: 'transparent',
+                cursor: 'pointer',
+                padding: 0,
               }}
             >
               {w}
-            </div>
+            </button>
           </div>
         ))}
       </div>
@@ -175,23 +451,42 @@ export function IOSKeyboard({ dark = false }: Props) {
           width: '100%',
           boxSizing: 'border-box',
           position: 'relative',
+          overflow: 'visible',
         }}
       >
-        {row(['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'])}
-        {row(['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'], 20)}
+        {letterRow(['q', 'w', 'e', 'r', 't', 'y', 'u', 'i', 'o', 'p'])}
+        {letterRow(['a', 's', 'd', 'f', 'g', 'h', 'j', 'k', 'l'], 20)}
         <div style={{ display: 'flex', gap: 14.25, alignItems: 'center' }}>
-          {key(icons.shift, { w: 45, k: 'shift' })}
+          {key(icons.shift, { w: 45, k: 'shift', action: 'shift' })}
           <div style={{ display: 'flex', gap: 6.5, flex: 1 }}>
-            {['z', 'x', 'c', 'v', 'b', 'n', 'm'].map((l) =>
-              key(l, { flex: true, k: l }),
-            )}
+            {['z', 'x', 'c', 'v', 'b', 'n', 'm'].map((l, i, arr) => {
+              const edge: Edge =
+                i === 0 ? 'left' : i === arr.length - 1 ? 'right' : 'center'
+              return (
+                <LetterKey
+                  key={l}
+                  char={l}
+                  shifted={shifted}
+                  edge={edge}
+                  dark={dark}
+                  glyph={glyph}
+                  keyBg={keyBg}
+                  onType={typeChar}
+                />
+              )
+            })}
           </div>
-          {key(icons.del, { w: 45, k: 'del' })}
+          {key(icons.del, { w: 45, k: 'del', action: 'del' })}
         </div>
         <div style={{ display: 'flex', gap: 6, alignItems: 'center' }}>
-          {key('ABC', { w: 92.25, fs: 18, k: 'abc' })}
-          {key('', { flex: true, k: 'space' })}
-          {key(icons.ret, { w: 92.25, ret: true, k: 'ret' })}
+          {key(shifted ? 'abc' : 'ABC', {
+            w: 92.25,
+            fs: 18,
+            k: 'abc',
+            action: 'shift',
+          })}
+          {key('', { flex: true, k: 'space', action: 'space' })}
+          {key(icons.ret, { w: 92.25, ret: true, k: 'ret', action: 'ret' })}
         </div>
       </div>
 

@@ -23,8 +23,16 @@ export type OnboardingResult = {
   relationshipId: string
 }
 
+type OnboardingMode = 'full' | 'addYoshi'
+
 type Props = {
   onComplete: (result: OnboardingResult) => void
+  /** Full first-run vs. create another Yoshi from Switch */
+  mode?: OnboardingMode
+  /** Prior profile used when adding another Yoshi */
+  seed?: OnboardingResult
+  /** Leave add-Yoshi flow without changing the current Yoshi */
+  onCancel?: () => void
 }
 
 type Step =
@@ -52,6 +60,14 @@ const FLOW_STEPS: Step[] = [
   'notifications',
 ]
 
+/** Shorter create-another path: relationship → meet → name → intro chat */
+const ADD_FLOW_STEPS: Step[] = [
+  'relationship',
+  'meet',
+  'nameYoshi',
+  'meetChat',
+]
+
 const BG: CSSProperties = {
   // Keep lavender through the full height — avoid washing out to plain white mid-screen.
   background: 'linear-gradient(180deg, #E9E6F8 0%, #EEEBF8 48%, #F2F0F8 100%)',
@@ -62,18 +78,27 @@ const INK = '#1A2756'
 const MUTED = 'rgba(26, 39, 86, 0.55)'
 /** Extra air when screen titles wrap to 2+ lines */
 const TITLE_LH = 1.45
-function flowProgress(step: Step) {
-  const i = FLOW_STEPS.indexOf(step)
-  if (i < 0) return 0
-  return (i + 1) / FLOW_STEPS.length
+function flowStepsFor(mode: OnboardingMode) {
+  return mode === 'addYoshi' ? ADD_FLOW_STEPS : FLOW_STEPS
 }
 
-function flowBackTarget(step: Step): Step | null {
+function flowProgress(step: Step, mode: OnboardingMode = 'full') {
+  const steps = flowStepsFor(mode)
+  const i = steps.indexOf(step)
+  if (i < 0) return 0
+  return (i + 1) / steps.length
+}
+
+function flowBackTarget(
+  step: Step,
+  mode: OnboardingMode = 'full',
+): Step | null {
   if (step === 'preparing' || step === 'meet') return 'relationship'
-  const i = FLOW_STEPS.indexOf(step)
+  const steps = flowStepsFor(mode)
+  const i = steps.indexOf(step)
   if (i < 0) return null
-  if (i === 0) return 'welcome'
-  return FLOW_STEPS[i - 1] ?? null
+  if (i === 0) return mode === 'addYoshi' ? null : 'welcome'
+  return steps[i - 1] ?? null
 }
 
 const RELATIONSHIP_TYPES = [
@@ -105,19 +130,17 @@ const RELATIONSHIP_TYPES = [
 type RelationshipType = (typeof RELATIONSHIP_TYPES)[number]
 
 const HOBBIES = [
-  { id: 'formula1', label: 'Formula 1' },
   { id: 'cooking', label: 'Cooking' },
-  { id: 'indie-films', label: 'Indie films' },
+  { id: 'movies', label: 'Movies' },
   { id: 'hiking', label: 'Hiking' },
   { id: 'books', label: 'Books' },
   { id: 'design', label: 'Design' },
-  { id: 'space', label: 'Space' },
   { id: 'coffee', label: 'Coffee' },
   { id: 'gaming', label: 'Gaming' },
-  { id: 'live-music', label: 'Live music' },
+  { id: 'music', label: 'Music' },
+  { id: 'anime', label: 'Anime' },
   { id: 'photography', label: 'Photography' },
   { id: 'travel', label: 'Travel' },
-  { id: 'gardening', label: 'Gardening' },
   { id: 'art', label: 'Art' },
 ] as const
 
@@ -595,38 +618,41 @@ function NameStep({
         >
           What’s your name?
         </h1>
-        <input
-          autoFocus
-          value={value}
-          onChange={(e) => onChange(e.target.value)}
-          onFocus={() => setFocused(true)}
-          onBlur={() => setFocused(false)}
-          onKeyDown={(e) => {
-            if (e.key === 'Enter' && value.trim()) onNext()
-          }}
-          placeholder="Your name"
-          style={{
-            marginTop: 40,
-            width: '100%',
-            height: 58,
-            minHeight: 58,
-            flexShrink: 0,
-            borderRadius: 999,
-            border: '1px solid rgba(26,39,86,0.08)',
-            background: '#fff',
-            boxShadow: '0 8px 24px rgba(26,39,86,0.08)',
-            padding: '0 24px',
-            fontSize: 20,
-            fontWeight: 500,
-            color: INK,
-            outline: 'none',
-            boxSizing: 'border-box',
-            fontFamily: 'inherit',
-            textAlign: 'center',
-          }}
-        />
+        <div data-keep-keyboard style={{ width: '100%', marginTop: 40 }}>
+          <input
+            autoFocus
+            value={value}
+            onChange={(e) => onChange(e.target.value)}
+            onFocus={() => setFocused(true)}
+            onBlur={() => setFocused(false)}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && value.trim()) onNext()
+            }}
+            placeholder="Your name"
+            style={{
+              width: '100%',
+              height: 58,
+              minHeight: 58,
+              flexShrink: 0,
+              borderRadius: 999,
+              border: '1px solid rgba(26,39,86,0.08)',
+              background: '#fff',
+              boxShadow: '0 8px 24px rgba(26,39,86,0.08)',
+              padding: '0 24px',
+              fontSize: 20,
+              fontWeight: 500,
+              color: INK,
+              outline: 'none',
+              boxSizing: 'border-box',
+              fontFamily: 'inherit',
+              textAlign: 'center',
+            }}
+          />
+        </div>
         <KeyboardDockedAction active={focused}>
-          <NextButton onClick={onNext} disabled={!value.trim()} />
+          <div data-keep-keyboard>
+            <NextButton onClick={onNext} disabled={!value.trim()} />
+          </div>
         </KeyboardDockedAction>
       </div>
     </ScreenShell>
@@ -1275,7 +1301,10 @@ function HobbiesChatStep({
           paddingTop: 250,
           paddingLeft: 18,
           paddingRight: 18,
-          paddingBottom: compact ? 12 : 152,
+          // Desktop: clear Continue with a modest gap
+          paddingBottom: compact
+            ? 12
+            : 'calc(84px + var(--action-bottom, 48px) + var(--safe-bottom, 0px))',
           WebkitMaskImage:
             'linear-gradient(to bottom,transparent 122px,#000 312px)',
           maskImage: 'linear-gradient(to bottom,transparent 122px,#000 312px)',
@@ -1354,7 +1383,7 @@ function HobbiesChatStep({
             right: 0,
             bottom: mobileCtaH,
             zIndex: 14,
-            padding: '8px 18px 10px',
+            padding: '4px 18px 6px',
             background:
               'linear-gradient(180deg, rgba(242,240,248,0) 0%, #F2F0F8 28%)',
           }}
@@ -1465,109 +1494,181 @@ function NotificationsStep({
           boxSizing: 'border-box',
         }}
       >
-        {/* Yoshi “app icon” with a little ping badge */}
-        <div style={{ position: 'relative', marginTop: 28 }}>
-          <div
+        <div
+          style={{
+            flex: 1,
+            width: '100%',
+            display: 'flex',
+            flexDirection: 'column',
+            alignItems: 'center',
+            justifyContent: 'flex-start',
+            minHeight: 0,
+            paddingTop: 28,
+            paddingBottom: 12,
+          }}
+        >
+          <h1
             style={{
-              width: 88,
-              height: 88,
-              borderRadius: 24,
-              overflow: 'hidden',
-              boxShadow: '0 14px 32px rgba(26,39,86,0.18)',
-              background: '#ddd',
-              position: 'relative',
+              margin: 0,
+              fontSize: 28,
+              fontWeight: 700,
+              letterSpacing: '-0.03em',
+              color: INK,
+              textAlign: 'center',
+              lineHeight: 1.2,
+              maxWidth: 300,
             }}
           >
-            <img
-              src={image}
-              alt=""
-              style={{
-                width: '100%',
-                height: '100%',
-                objectFit: 'cover',
-                objectPosition: '50% 18%',
-                display: 'block',
-                filter: warmthFilter(warmth),
-              }}
-            />
-            <div
-              style={{
-                position: 'absolute',
-                inset: 0,
-                background: warmthOverlay(warmth),
-                pointerEvents: 'none',
-              }}
-            />
-          </div>
+            Stay close with {yoshiName}
+          </h1>
+
+          {/* Phone + notification illustration */}
           <div
+            aria-hidden
             style={{
-              position: 'absolute',
-              right: -6,
-              top: -6,
-              width: 30,
-              height: 30,
+              width: 220,
+              height: 220,
+              marginTop: 24,
               borderRadius: '50%',
-              background: ACCENT,
+              background:
+                'radial-gradient(circle at 50% 42%, #E4E0F4 0%, #D9D4EE 55%, #D2CDEA 100%)',
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              boxShadow: '0 6px 14px rgba(192,90,60,0.4)',
-              border: '2px solid #F3F1F8',
+              position: 'relative',
+              animation: 'fuiboSplashIn .55s ease both',
             }}
-            aria-hidden
           >
-            <svg width="14" height="14" viewBox="0 0 14 14" fill="none">
-              <path
-                d="M7 1.6c-1.7 0-3.1 1.3-3.1 3v1.2c0 .7-.3 1.4-.8 1.9L2.4 8.4c-.3.3-.1.8.3.8h8.6c.4 0 .6-.5.3-.8l-.7-.7a2.7 2.7 0 0 1-.8-1.9V4.6C9.9 2.9 8.5 1.6 7 1.6Z"
-                fill="#fff"
+            <div
+              style={{
+                width: 92,
+                height: 148,
+                borderRadius: 18,
+                background: 'linear-gradient(165deg, #3A4A7A 0%, #1A2756 100%)',
+                boxShadow: '0 16px 28px rgba(26,39,86,0.18)',
+                position: 'relative',
+                overflow: 'hidden',
+              }}
+            >
+              <div
+                style={{
+                  position: 'absolute',
+                  top: 10,
+                  left: '50%',
+                  transform: 'translateX(-50%)',
+                  width: 36,
+                  height: 5,
+                  borderRadius: 999,
+                  background: 'rgba(255,255,255,0.28)',
+                }}
               />
-              <path
-                d="M5.7 11c.3.5.8.8 1.3.8s1-.3 1.3-.8"
-                stroke="#fff"
-                strokeWidth="1.2"
-                strokeLinecap="round"
+              <div
+                style={{
+                  position: 'absolute',
+                  inset: '22px 10px 14px',
+                  borderRadius: 10,
+                  background: 'rgba(255,255,255,0.14)',
+                }}
               />
-            </svg>
-          </div>
-        </div>
+            </div>
 
-        <h1
-          style={{
-            margin: '28px 0 0',
-            fontSize: 26,
-            fontWeight: 600,
-            letterSpacing: '-0.02em',
-            color: INK,
-            textAlign: 'center',
-            lineHeight: TITLE_LH,
-            maxWidth: 320,
-          }}
-        >
-          Want {yoshiName} to reach out when they find something you’d love?
-        </h1>
-        <p
-          style={{
-            margin: '12px 0 0',
-            fontSize: 15,
-            lineHeight: 1.45,
-            color: MUTED,
-            textAlign: 'center',
-            maxWidth: 300,
-          }}
-        >
-          Quiet pings for tips and shows you’ll like, from {yoshiName}.
-        </p>
+            <div
+              style={{
+                position: 'absolute',
+                left: '50%',
+                top: '42%',
+                transform: 'translate(-50%, -50%)',
+                width: 168,
+                height: 56,
+                borderRadius: 16,
+                background: '#FFFFFF',
+                boxShadow: '0 10px 28px rgba(26,39,86,0.16)',
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                padding: '0 14px',
+                animation: 'notifCardFloat 2.8s ease-in-out infinite',
+              }}
+            >
+              <div
+                style={{
+                  width: 34,
+                  height: 34,
+                  borderRadius: '50%',
+                  overflow: 'hidden',
+                  flexShrink: 0,
+                  background: '#ddd',
+                  position: 'relative',
+                }}
+              >
+                <img
+                  src={image}
+                  alt=""
+                  style={{
+                    width: '100%',
+                    height: '100%',
+                    objectFit: 'cover',
+                    objectPosition: '50% 18%',
+                    display: 'block',
+                    filter: warmthFilter(warmth),
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    inset: 0,
+                    background: warmthOverlay(warmth),
+                    pointerEvents: 'none',
+                  }}
+                />
+              </div>
+              <div style={{ flex: 1, minWidth: 0 }}>
+                <div
+                  style={{
+                    height: 8,
+                    width: '72%',
+                    borderRadius: 999,
+                    background: 'rgba(26,39,86,0.14)',
+                    marginBottom: 7,
+                  }}
+                />
+                <div
+                  style={{
+                    height: 8,
+                    width: '48%',
+                    borderRadius: 999,
+                    background: 'rgba(26,39,86,0.08)',
+                  }}
+                />
+              </div>
+            </div>
+          </div>
+
+          <p
+            style={{
+              margin: '24px 0 0',
+              fontSize: 15,
+              lineHeight: 1.5,
+              color: MUTED,
+              textAlign: 'center',
+              maxWidth: 300,
+            }}
+          >
+            Get a nudge when {yoshiName} wants to check in — so you’re never too
+            far apart.
+          </p>
+        </div>
 
         <div
           style={{
-            marginTop: 'auto',
             marginBottom:
               'calc(var(--action-bottom, 48px) + var(--safe-bottom, 0px))',
             width: '100%',
             display: 'flex',
             flexDirection: 'column',
             alignItems: 'center',
-            gap: 14,
+            gap: 18,
+            flexShrink: 0,
           }}
         >
           <button
@@ -1587,7 +1688,7 @@ function NotificationsStep({
               boxShadow: '0 12px 28px rgba(192,90,60,0.35)',
             }}
           >
-            Yes, reach out
+            Turn on notifications
           </button>
           <button
             type="button"
@@ -1595,15 +1696,15 @@ function NotificationsStep({
             style={{
               border: 'none',
               background: 'transparent',
-              color: MUTED,
+              color: INK,
               fontSize: 16,
-              fontWeight: 500,
+              fontWeight: 600,
               fontFamily: 'inherit',
               cursor: 'pointer',
-              padding: 8,
+              padding: 10,
             }}
           >
-            Not now
+            Skip
           </button>
         </div>
       </div>
@@ -1619,6 +1720,7 @@ function NotificationsStep({
             alignItems: 'center',
             justifyContent: 'center',
             padding: 28,
+            animation: 'fuiboScrimIn .2s ease both',
           }}
         >
           <div
@@ -1630,6 +1732,7 @@ function NotificationsStep({
               overflow: 'hidden',
               boxShadow: '0 20px 50px rgba(0,0,0,0.28)',
               textAlign: 'center',
+              animation: 'fuiboSheetIn .28s ease both',
             }}
           >
             <div style={{ padding: '20px 16px 14px' }}>
@@ -2130,7 +2233,8 @@ const MEET_YOSHI_PX = 64
 const MEET_LOOK_PX = 56
 const AXIS_LOCK_PX = 12
 /** Mid-range so scrubbing works both ways from the start */
-const START_YOSHI = Math.floor((MEET_YOSHI_COUNT - 1) / 2)
+/** Curly-hair portrait set (1-based slot 7 → index 6). */
+const START_YOSHI = 6
 const START_LOOK = Math.floor((MEET_VARIATIONS - 1) / 2)
 
 function WarmthSpinner({
@@ -2851,14 +2955,15 @@ function MeetStep({
               width: 112,
               height: 58,
               borderRadius: 999,
-              border: '1px solid rgba(26,39,86,0.12)',
-              background: 'rgba(255,255,255,0.5)',
-              color: MUTED,
+              border: `1.5px solid ${INK}`,
+              background: '#FFFFFF',
+              color: INK,
               fontSize: 15,
               fontWeight: 600,
               cursor: 'pointer',
               fontFamily: 'inherit',
               flex: 'none',
+              boxShadow: '0 6px 16px rgba(26,39,86,0.10)',
             }}
           >
             Add photo
@@ -2992,40 +3097,49 @@ function NameYoshiStep({
             zIndex: 2,
           }}
         >
-          <input
-            autoFocus
-            value={value}
-            onChange={(e) => onChange(e.target.value)}
-            onFocus={() => setFocused(true)}
-            onBlur={() => setFocused(false)}
-            onKeyDown={(e) => {
-              if (e.key === 'Enter' && value.trim()) onNext()
-            }}
-            placeholder="Name your Yoshi"
+          <div
+            data-keep-keyboard
             style={{
               width: '100%',
-              height: 58,
-              minHeight: 58,
-              flexShrink: 0,
               marginTop: -29,
-              borderRadius: 999,
-              border: '1px solid rgba(26,39,86,0.08)',
-              background: '#fff',
-              boxShadow: '0 8px 24px rgba(26,39,86,0.08)',
-              padding: '0 24px',
-              fontSize: 18,
-              fontWeight: 500,
-              color: INK,
-              outline: 'none',
-              boxSizing: 'border-box',
-              fontFamily: 'inherit',
-              textAlign: 'center',
               position: 'relative',
               zIndex: 2,
             }}
-          />
+          >
+            <input
+              autoFocus
+              value={value}
+              onChange={(e) => onChange(e.target.value)}
+              onFocus={() => setFocused(true)}
+              onBlur={() => setFocused(false)}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' && value.trim()) onNext()
+              }}
+              placeholder="Name your Yoshi"
+              style={{
+                width: '100%',
+                height: 58,
+                minHeight: 58,
+                flexShrink: 0,
+                borderRadius: 999,
+                border: '1px solid rgba(26,39,86,0.08)',
+                background: '#fff',
+                boxShadow: '0 8px 24px rgba(26,39,86,0.08)',
+                padding: '0 24px',
+                fontSize: 18,
+                fontWeight: 500,
+                color: INK,
+                outline: 'none',
+                boxSizing: 'border-box',
+                fontFamily: 'inherit',
+                textAlign: 'center',
+              }}
+            />
+          </div>
           <KeyboardDockedAction active={focused}>
-            <NextButton onClick={onNext} disabled={!value.trim()} />
+            <div data-keep-keyboard>
+              <NextButton onClick={onNext} disabled={!value.trim()} />
+            </div>
           </KeyboardDockedAction>
         </div>
       </div>
@@ -3033,9 +3147,16 @@ function NameYoshiStep({
   )
 }
 
-export function Onboarding({ onComplete }: Props) {
-  const [step, setStep] = useState<Step>('splash')
-  const [userName, setUserName] = useState('')
+export function Onboarding({
+  onComplete,
+  mode = 'full',
+  seed,
+  onCancel,
+}: Props) {
+  const adding = mode === 'addYoshi'
+  const knownUserName = (seed?.userName ?? '').trim()
+  const [step, setStep] = useState<Step>(adding ? 'relationship' : 'splash')
+  const [userName, setUserName] = useState(knownUserName)
   const [day, setDay] = useState(1)
   const [month, setMonth] = useState(0)
   const [year, setYear] = useState(2000)
@@ -3056,6 +3177,10 @@ export function Onboarding({ onComplete }: Props) {
     RELATIONSHIP_TYPES[1]
   const showKeyboard = step === 'name' || step === 'nameYoshi'
   const chosenYoshiName = yoshiName.trim() || 'Yoshi'
+  /** Name the new Yoshi should address the user by */
+  const addressedUserName = adding
+    ? knownUserName || 'friend'
+    : userName.trim() || 'friend'
 
   useEffect(() => {
     if (relIndex >= relationshipTypes.length) {
@@ -3063,10 +3188,12 @@ export function Onboarding({ onComplete }: Props) {
     }
   }, [relIndex, relationshipTypes.length])
 
-  const landOnHome = (name = userName.trim()) => {
-    // Chosen relationship type owns which Switch Yoshi slot gets the meet image/name
+  const landOnHome = (name?: string) => {
+    const resolvedName = adding
+      ? knownUserName || userName.trim()
+      : (name ?? userName.trim())
     onComplete({
-      userName: name,
+      userName: resolvedName,
       yoshiId: relationship.yoshiId,
       yoshiName: chosenYoshiName,
       yoshiImage: meetSelection.image,
@@ -3091,10 +3218,14 @@ export function Onboarding({ onComplete }: Props) {
     )
   }
 
-  const progress = flowProgress(step)
+  const progress = flowProgress(step, mode)
   const goBack = () => {
-    const prev = flowBackTarget(step)
-    if (prev) setStep(prev)
+    const prev = flowBackTarget(step, mode)
+    if (prev) {
+      setStep(prev)
+      return
+    }
+    if (adding) onCancel?.()
   }
 
   let body: ReactNode = null
@@ -3175,10 +3306,13 @@ export function Onboarding({ onComplete }: Props) {
     body = (
       <MeetChatStep
         yoshiName={chosenYoshiName}
-        userName={userName.trim() || 'friend'}
+        userName={addressedUserName}
         image={meetSelection.image}
         warmth={meetSelection.warmth}
-        onNext={() => setStep('hobbies')}
+        onNext={() => {
+          if (adding) landOnHome()
+          else setStep('hobbies')
+        }}
         onBack={goBack}
       />
     )
@@ -3186,7 +3320,7 @@ export function Onboarding({ onComplete }: Props) {
     body = (
       <HobbiesChatStep
         yoshiName={chosenYoshiName}
-        userName={userName.trim() || 'friend'}
+        userName={addressedUserName}
         image={meetSelection.image}
         warmth={meetSelection.warmth}
         selected={hobbies}

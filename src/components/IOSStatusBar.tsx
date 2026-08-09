@@ -1,10 +1,27 @@
+import { useEffect, useState } from 'react'
+
 type Props = {
   dark?: boolean
+  /** Override live clock (mainly for tests / stories) */
   time?: string
 }
 
-export function IOSStatusBar({ dark = false, time = '9:41' }: Props) {
+function formatTime(d = new Date()) {
+  return d.toLocaleTimeString([], { hour: 'numeric', minute: '2-digit' })
+}
+
+export function IOSStatusBar({ dark = false, time }: Props) {
+  const [liveTime, setLiveTime] = useState(() => formatTime())
   const c = dark ? '#fff' : '#000'
+  const display = time ?? liveTime
+
+  useEffect(() => {
+    if (time != null) return
+    const tick = () => setLiveTime(formatTime())
+    tick()
+    const id = window.setInterval(tick, 15_000)
+    return () => window.clearInterval(id)
+  }, [time])
 
   return (
     <div
@@ -39,7 +56,7 @@ export function IOSStatusBar({ dark = false, time = '9:41' }: Props) {
             color: c,
           }}
         >
-          {time}
+          {display}
         </span>
       </div>
       <div

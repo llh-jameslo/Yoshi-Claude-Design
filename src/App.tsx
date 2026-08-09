@@ -1,10 +1,16 @@
 import { useEffect, useState } from 'react'
 import { FuiboFlower } from './fuibo/FuiboFlower'
 import { Onboarding, type OnboardingResult } from './fuibo/Onboarding'
+import {
+  emptySlotCount,
+  ownedFromResult,
+  type UserProfile,
+} from './fuibo/ownedYoshis'
 import { useCompactViewport } from './hooks/useCompactViewport'
 
 export default function App() {
-  const [result, setResult] = useState<OnboardingResult | null>(null)
+  const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [addingYoshi, setAddingYoshi] = useState(false)
   const compact = useCompactViewport()
 
   useEffect(() => {
@@ -13,6 +19,29 @@ export default function App() {
       delete document.documentElement.dataset.deviceChrome
     }
   }, [compact])
+
+  const finishOnboarding = (next: OnboardingResult) => {
+    if (addingYoshi && profile) {
+      const owned = ownedFromResult(next)
+      setProfile({
+        userName: profile.userName || next.userName,
+        yoshis: [...profile.yoshis, owned],
+        activeId: owned.id,
+      })
+      setAddingYoshi(false)
+      return
+    }
+
+    const owned = ownedFromResult(next)
+    setProfile({
+      userName: next.userName,
+      yoshis: [owned],
+      activeId: owned.id,
+    })
+    setAddingYoshi(false)
+  }
+
+  const active = profile?.yoshis.find((y) => y.id === profile.activeId)
 
   return (
     <div
@@ -27,15 +56,42 @@ export default function App() {
         background: compact ? '#F2F0F8' : undefined,
       }}
     >
-      {result ? (
+      {profile && active && !addingYoshi ? (
         <FuiboFlower
-          initialYoshiId={result.yoshiId}
-          nameOverride={result.yoshiName}
-          imageOverride={result.yoshiImage}
-          onRestartOnboarding={() => setResult(null)}
+          userName={profile.userName}
+          yoshis={profile.yoshis}
+          activeYoshiId={profile.activeId}
+          emptySlots={emptySlotCount(profile.yoshis.length)}
+          onSelectYoshi={(id) =>
+            setProfile((prev) => (prev ? { ...prev, activeId: id } : prev))
+          }
+          onRestartOnboarding={() => {
+            setProfile(null)
+            setAddingYoshi(false)
+          }}
+          onAddYoshi={
+            emptySlotCount(profile.yoshis.length) > 0
+              ? () => setAddingYoshi(true)
+              : undefined
+          }
         />
       ) : (
-        <Onboarding onComplete={setResult} />
+        <Onboarding
+          mode={addingYoshi ? 'addYoshi' : 'full'}
+          seed={
+            addingYoshi && profile
+              ? {
+                  userName: profile.userName,
+                  yoshiId: active?.templateId ?? 'fuibo-flower',
+                  yoshiName: active?.name ?? '',
+                  yoshiImage: active?.image ?? '',
+                  relationshipId: active?.relationshipId ?? 'friend',
+                }
+              : undefined
+          }
+          onCancel={addingYoshi ? () => setAddingYoshi(false) : undefined}
+          onComplete={finishOnboarding}
+        />
       )}
     </div>
   )

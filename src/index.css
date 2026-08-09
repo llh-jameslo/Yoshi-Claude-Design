@@ -124,6 +124,16 @@ html[data-kb-lock='on'] body {
   }
 }
 
+@keyframes notifCardFloat {
+  0%,
+  100% {
+    transform: translate(-50%, -50%);
+  }
+  50% {
+    transform: translate(-50%, calc(-50% - 5px));
+  }
+}
+
 @keyframes fuiboSplashIn {
   from {
     opacity: 0;

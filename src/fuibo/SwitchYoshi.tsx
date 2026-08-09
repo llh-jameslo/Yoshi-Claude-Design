@@ -6,7 +6,7 @@ import {
   type UIEvent,
 } from 'react'
 import { useCompactViewport } from '../hooks/useCompactViewport'
-import { orderedYoshis, type Yoshi } from './yoshis'
+import type { Yoshi } from './yoshis'
 
 const CARD_W = 300
 const GAP = 28
@@ -14,46 +14,43 @@ const STRIDE = CARD_W + GAP
 /** Match “Switch Yoshi” title inset (left: 24) */
 const SIDE_PAD = 24
 
-type CustomYoshi = {
-  id: string
-  name?: string
-  image?: string
-}
-
 type Props = {
+  yoshis: Yoshi[]
   selectedId: string
+  /** How many empty “Add Yoshi” cards to show after owned ones */
+  emptySlots?: number
   onBack: () => void
   onSelect: (id: string) => void
-  /** Onboarding pick: overrides image/name for that Yoshi slot only */
-  customYoshi?: CustomYoshi
+  /** Start creating another Yoshi */
+  onAddYoshi?: () => void
 }
 
 export function SwitchYoshi({
+  yoshis,
   selectedId,
+  emptySlots = 0,
   onBack,
   onSelect,
-  customYoshi,
+  onAddYoshi,
 }: Props) {
   const compact = useCompactViewport()
   const railRef = useRef<HTMLDivElement>(null)
   const drag = useRef<{ x: number; left: number } | null>(null)
   const dragMoved = useRef(false)
   const snapTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+
+  // Selected first, then the rest of the user’s Yoshis
   const list = useMemo(() => {
-    return orderedYoshis(selectedId).map((y) => {
-      if (!customYoshi || y.id !== customYoshi.id) return y
-      return {
-        ...y,
-        name: customYoshi.name?.trim() || y.name,
-        image: customYoshi.image || y.image,
-      }
-    })
-  }, [selectedId, customYoshi])
+    const selected = yoshis.find((y) => y.id === selectedId)
+    const rest = yoshis.filter((y) => y.id !== selectedId)
+    return selected ? [selected, ...rest] : yoshis
+  }, [yoshis, selectedId])
+
+  const railLen = list.length + emptySlots
 
   useEffect(() => {
     const el = railRef.current
     if (!el) return
-    // Selected is always first — open at the left edge
     el.scrollLeft = 0
   }, [selectedId])
 
@@ -70,7 +67,7 @@ export function SwitchYoshi({
     el.style.cursor = 'grab'
     const next = Math.max(
       0,
-      Math.min(list.length - 1, Math.round(el.scrollLeft / STRIDE)),
+      Math.min(Math.max(0, railLen - 1), Math.round(el.scrollLeft / STRIDE)),
     )
     el.scrollTo({ left: next * STRIDE, behavior: 'smooth' })
   }
@@ -105,6 +102,14 @@ export function SwitchYoshi({
     if (drag.current) return
     if (snapTimer.current) clearTimeout(snapTimer.current)
     snapTimer.current = setTimeout(() => snap(), 120)
+  }
+
+  const tryAdd = () => {
+    if (dragMoved.current) {
+      dragMoved.current = false
+      return
+    }
+    onAddYoshi?.()
   }
 
   return (
@@ -202,8 +207,6 @@ export function SwitchYoshi({
           overflowX: 'auto',
           overflowY: 'hidden',
           gap: GAP,
-          // Desktop: unchanged. Mobile: set sides separately so a bad right calc
-          // can't wipe left inset; scroll-padding keeps snap off the screen edge.
           ...(compact
             ? {
                 paddingTop: 0,
@@ -244,6 +247,13 @@ export function SwitchYoshi({
             }}
           />
         ))}
+        {Array.from({ length: emptySlots }, (_, slot) => (
+          <AddYoshiCard
+            key={`add-yoshi-${slot}`}
+            snapAlign={compact}
+            onAdd={tryAdd}
+          />
+        ))}
       </div>
     </div>
   )
@@ -260,10 +270,8 @@ function YoshiCard({
   onSelect: () => void
   snapAlign?: boolean
 }) {
-  // Character image is the tall layer; accent plate is a separate sibling
-  // behind it at ~75% of the image height (not a wrapping parent).
   const NAME_H = 56
-  const NAME_GAP = 14 // space between image bottom and name bubble
+  const NAME_GAP = 14
   const SIDE_INSET = 16
   const PAD_BOTTOM = 12
   const FOOTER_H = NAME_H + NAME_GAP + PAD_BOTTOM
@@ -285,14 +293,12 @@ function YoshiCard({
           : {}),
       }}
     >
-      {/* Background card — shorter plate under the character */}
       <div
         style={{
           position: 'absolute',
           left: 0,
           right: 0,
           bottom: 0,
-          // 75% of character-card height + footer band (gap + name + pad)
           height: `calc((100% - ${FOOTER_H}px) * 0.75 + ${FOOTER_H}px)`,
           background: yoshi.accent,
           borderRadius: 28,
@@ -382,7 +388,6 @@ function YoshiCard({
         </button>
       </div>
 
-      {/* Character card — sibling overlay, not nested in the accent plate */}
       <div
         style={{
           position: 'absolute',
@@ -410,6 +415,174 @@ function YoshiCard({
           }}
         />
       </div>
+    </div>
+  )
+}
+
+function AddYoshiCard({
+  onAdd,
+  snapAlign = false,
+}: {
+  onAdd: () => void
+  snapAlign?: boolean
+}) {
+  const NAME_H = 56
+  const NAME_GAP = 14
+  const SIDE_INSET = 16
+  const PAD_BOTTOM = 12
+  const FOOTER_H = NAME_H + NAME_GAP + PAD_BOTTOM
+  const IMG_SIDE = SIDE_INSET
+
+  return (
+    <div
+      style={{
+        flex: 'none',
+        width: CARD_W,
+        height: '100%',
+        maxHeight: 500,
+        position: 'relative',
+        ...(snapAlign
+          ? {
+              scrollSnapAlign: 'start' as const,
+              scrollSnapStop: 'always' as const,
+            }
+          : {}),
+      }}
+    >
+      <div
+        style={{
+          position: 'absolute',
+          left: 0,
+          right: 0,
+          bottom: 0,
+          height: `calc((100% - ${FOOTER_H}px) * 0.75 + ${FOOTER_H}px)`,
+          background: '#E4E0EC',
+          borderRadius: 28,
+          zIndex: 1,
+          display: 'flex',
+          alignItems: 'flex-end',
+          padding: `${PAD_BOTTOM}px ${SIDE_INSET}px`,
+          boxSizing: 'border-box',
+        }}
+      >
+        <button
+          type="button"
+          onClick={(e) => {
+            e.stopPropagation()
+            onAdd()
+          }}
+          onMouseDown={(e) => e.stopPropagation()}
+          aria-label="Add another Yoshi"
+          style={{
+            width: '100%',
+            height: NAME_H,
+            borderRadius: 999,
+            border: 'none',
+            background: 'rgba(255,255,255,0.55)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            padding: '0 12px 0 16px',
+            boxSizing: 'border-box',
+            cursor: 'pointer',
+            font: 'inherit',
+            textAlign: 'left',
+          }}
+        >
+          <span
+            style={{
+              fontSize: 17,
+              fontWeight: 500,
+              color: '#17151C',
+              letterSpacing: '-.01em',
+            }}
+          >
+            Add Yoshi
+          </span>
+          <span
+            aria-hidden="true"
+            style={{
+              width: 40,
+              height: 40,
+              borderRadius: '50%',
+              background: '#1A1814',
+              color: '#fff',
+              display: 'flex',
+              alignItems: 'center',
+              justifyContent: 'center',
+              flex: 'none',
+              fontSize: 26,
+              fontWeight: 400,
+              lineHeight: 1,
+              paddingBottom: 2,
+            }}
+          >
+            +
+          </span>
+        </button>
+      </div>
+
+      <button
+        type="button"
+        onClick={(e) => {
+          e.stopPropagation()
+          onAdd()
+        }}
+        onMouseDown={(e) => e.stopPropagation()}
+        aria-label="Create a new Yoshi"
+        style={{
+          position: 'absolute',
+          top: 0,
+          left: IMG_SIDE,
+          right: IMG_SIDE,
+          height: `calc(100% - ${FOOTER_H}px)`,
+          borderRadius: 22,
+          zIndex: 2,
+          border: '1.5px dashed rgba(26,24,20,0.22)',
+          background:
+            'linear-gradient(180deg, rgba(255,255,255,0.55) 0%, rgba(255,255,255,0.28) 100%)',
+          boxShadow: '0 10px 28px rgba(26,24,20,.08)',
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          justifyContent: 'center',
+          gap: 14,
+          cursor: 'pointer',
+          padding: 0,
+          font: 'inherit',
+        }}
+      >
+        <span
+          aria-hidden
+          style={{
+            width: 72,
+            height: 72,
+            borderRadius: '50%',
+            background: '#FFFFFF',
+            boxShadow: '0 8px 20px rgba(26,24,20,.1)',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+            color: '#17151C',
+            fontSize: 40,
+            fontWeight: 300,
+            lineHeight: 1,
+            paddingBottom: 3,
+          }}
+        >
+          +
+        </span>
+        <span
+          style={{
+            fontSize: 15,
+            fontWeight: 500,
+            color: 'rgba(23,21,28,0.55)',
+            letterSpacing: '-.01em',
+          }}
+        >
+          Create another
+        </span>
+      </button>
     </div>
   )
 }
