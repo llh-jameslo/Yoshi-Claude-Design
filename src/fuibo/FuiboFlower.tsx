@@ -656,6 +656,11 @@ export function FuiboFlower({
         idx={idx}
         onIdxChange={setIdx}
         onTapCard={startTopic}
+        onClose={() => {
+          setOpen(false)
+          setSeen(true)
+          setHomeTipOpen(false)
+        }}
         getDragMoved={() => dragMoved.current}
         setDragMoved={(v) => {
           dragMoved.current = v

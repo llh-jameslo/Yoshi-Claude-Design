@@ -54,6 +54,7 @@ type Props = {
   idx: number
   onIdxChange: (idx: number) => void
   onTapCard: (i: number) => void
+  onClose: () => void
   getDragMoved: () => boolean
   setDragMoved: (v: boolean) => void
 }
@@ -62,6 +63,7 @@ export function TopicDrawer({
   idx,
   onIdxChange,
   onTapCard,
+  onClose,
   getDragMoved,
   setDragMoved,
 }: Props) {
@@ -172,15 +174,22 @@ export function TopicDrawer({
         }}
       >
         {CARDS.map((card, i) => (
-          <button
+          <div
             key={card.title}
-            type="button"
+            role="button"
+            tabIndex={0}
             onClick={() => {
               if (getDragMoved()) {
                 setDragMoved(false)
                 return
               }
               onTapCard(i)
+            }}
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' || e.key === ' ') {
+                e.preventDefault()
+                onTapCard(i)
+              }
             }}
             style={{
               flex: 'none',
@@ -194,10 +203,11 @@ export function TopicDrawer({
               textAlign: 'left',
               scrollSnapAlign: 'center',
               scrollSnapStop: 'always',
+              position: 'relative',
             }}
           >
-            <TopicCard {...card} />
-          </button>
+            <TopicCard {...card} onClose={onClose} />
+          </div>
         ))}
       </div>
       <div
@@ -219,7 +229,8 @@ function TopicCard({
   title,
   cta,
   tone,
-}: (typeof CARDS)[number]) {
+  onClose,
+}: (typeof CARDS)[number] & { onClose: () => void }) {
   const t = TONES[tone]
 
   return (
@@ -261,6 +272,40 @@ function TopicCard({
         }}
       />
 
+      <button
+        type="button"
+        aria-label="Close topics"
+        onClick={(e) => {
+          e.stopPropagation()
+          onClose()
+        }}
+        style={{
+          position: 'absolute',
+          top: 12,
+          right: 12,
+          zIndex: 3,
+          width: 24,
+          height: 24,
+          border: 'none',
+          padding: 0,
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          background: 'transparent',
+          color: 'rgba(26, 39, 86, 0.38)',
+          cursor: 'pointer',
+        }}
+      >
+        <svg width="11" height="11" viewBox="0 0 12 12" fill="none" aria-hidden>
+          <path
+            d="M2.5 2.5l7 7M9.5 2.5l-7 7"
+            stroke="currentColor"
+            strokeWidth="1.6"
+            strokeLinecap="round"
+          />
+        </svg>
+      </button>
+
       <div
         style={{
           position: 'relative',
@@ -279,6 +324,7 @@ function TopicCard({
             gap: 8,
             color: t.ink,
             opacity: 0.55,
+            paddingRight: 28,
           }}
         >
           <span
