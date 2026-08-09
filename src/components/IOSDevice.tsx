@@ -4,8 +4,9 @@ import { isTextField } from '../lib/fakeKeyboardInput'
 import { IOSStatusBar } from './IOSStatusBar'
 import { IOSKeyboard } from './IOSKeyboard'
 
-const KB_ANIM_MS = 340
-const KB_HEIGHT = 336
+export const KB_ANIM_MS = 380
+export const KB_HEIGHT = 336
+const KB_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 
 type Props = {
   children: ReactNode
@@ -181,7 +182,14 @@ export function IOSDevice({
         <IOSStatusBar dark={dark} />
       </div>
       <div style={{ height: '100%', display: 'flex', flexDirection: 'column' }}>
-        <div style={{ flex: 1, overflow: 'hidden', position: 'relative' }}>
+        <div
+          style={{
+            flex: '1 1 0%',
+            minHeight: 0,
+            overflow: 'hidden',
+            position: 'relative',
+          }}
+        >
           {children}
         </div>
         {!compact && kbMounted ? (
@@ -192,7 +200,7 @@ export function IOSDevice({
               height: kbOpen ? KB_HEIGHT : 0,
               // Clip only while collapsing so key-preview bubbles can paint above keys
               overflow: kbOpen ? 'visible' : 'hidden',
-              transition: `height ${KB_ANIM_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
+              transition: `height ${KB_ANIM_MS}ms ${KB_EASE}`,
               willChange: 'height',
               position: 'relative',
               zIndex: 20,
@@ -201,9 +209,9 @@ export function IOSDevice({
             <div
               style={{
                 height: KB_HEIGHT,
-                transform: kbOpen ? 'translateY(0)' : 'translateY(18%)',
-                opacity: kbOpen ? 1 : 0.85,
-                transition: `transform ${KB_ANIM_MS}ms cubic-bezier(0.32, 0.72, 0, 1), opacity ${KB_ANIM_MS * 0.85}ms ease`,
+                transform: kbOpen ? 'translateY(0)' : 'translateY(8%)',
+                opacity: kbOpen ? 1 : 0.92,
+                transition: `transform ${KB_ANIM_MS}ms ${KB_EASE}, opacity ${KB_ANIM_MS}ms ${KB_EASE}`,
                 willChange: 'transform, opacity',
                 overflow: 'visible',
               }}

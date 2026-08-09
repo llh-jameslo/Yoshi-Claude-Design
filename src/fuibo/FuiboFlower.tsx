@@ -6,8 +6,10 @@ import {
   useState,
   type PointerEvent as ReactPointerEvent,
 } from 'react'
-import { IOSDevice } from '../components/IOSDevice'
+import { IOSDevice, KB_ANIM_MS } from '../components/IOSDevice'
+import { useKeyboardInset } from '../hooks/useKeyboardInset'
 import { useCompactViewport } from '../hooks/useCompactViewport'
+import { isTextField } from '../lib/fakeKeyboardInput'
 import { TopicDrawer } from './TopicDrawer'
 import { SwitchYoshi } from './SwitchYoshi'
 import { getYoshi } from './yoshis'
@@ -72,7 +74,8 @@ const TOPIC_PAYLOADS: TopicPayload[] = [
   },
 ]
 
-const HOME_TOPIC = 'Wanna see the baby version of your rabbit?'
+const HOME_TOPIC = "Let's chattt"
+const HOME_TIP = 'Wanna see the baby version of your rabbit?'
 
 const HOME_TOPIC_PAYLOAD: TopicPayload = {
   text: 'Remember when you showed me your rabbit? This is how they’d look as a baby.',
@@ -316,7 +319,7 @@ function PencilIcon({ color = '#17151C' }: { color?: string }) {
   )
 }
 
-function ChatBubbleIcon() {
+function ThinkingIcon() {
   return (
     <svg
       width="36"
@@ -324,12 +327,14 @@ function ChatBubbleIcon() {
       viewBox="0 0 24 24"
       fill="none"
       aria-hidden
-      style={{ transform: 'translate(-1px, 2px)' }}
+      style={{ transform: 'translate(0.5px, -1.5px)' }}
     >
       <path
-        d="M4 5.8C4 4.25 5.25 3 6.8 3h10.4C18.75 3 20 4.25 20 5.8v7.4c0 1.55-1.25 2.8-2.8 2.8H11.2l-3.85 3.15c-.4.33-1 .04-1-.48V16H6.8C5.25 16 4 14.75 4 13.2V5.8Z"
+        d="M8.2 4.2c-2.45 0-4.45 1.85-4.45 4.15 0 .72.2 1.4.55 2-.95.7-1.55 1.75-1.55 2.95 0 2.15 1.9 3.9 4.25 3.9h8.1c2.55 0 4.6-1.9 4.6-4.25 0-1.55-.9-2.9-2.2-3.6.15-.4.25-.85.25-1.3 0-2.45-2.15-4.45-4.8-4.45-1.4 0-2.65.55-3.5 1.45-.55-.55-1.3-.9-2.15-.9Z"
         fill="#FFF8F3"
       />
+      <circle cx="6.1" cy="18.1" r="1.55" fill="#FFF8F3" />
+      <circle cx="3.55" cy="20.9" r="1" fill="#FFF8F3" />
     </svg>
   )
 }
@@ -436,6 +441,7 @@ export function FuiboFlower({
   )
   const knownUserName = userName.trim() || 'friend'
   const [open, setOpen] = useState(false)
+  const [homeTipOpen, setHomeTipOpen] = useState(false)
   const [seen, setSeen] = useState(false)
   const [idx, setIdx] = useState(0)
   const [kb, setKb] = useState(false)
@@ -458,29 +464,41 @@ export function FuiboFlower({
   const titleTop = compact
     ? 'calc(var(--nav-top, 12px) + 72px)'
     : TITLE_TOP
+  // Raise image + bottom actions together (larger = shorter hero)
+  const homeLift = 24
   const homeBottom = compact
-    ? 'calc(20px + var(--safe-bottom, 0px))'
-    : 34
+    ? `calc(${20 + homeLift}px + var(--safe-bottom, 0px))`
+    : 34 + homeLift
   const bubbleBottom = compact
-    ? 'calc(22px + var(--safe-bottom, 0px))'
-    : 36
+    ? `calc(${22 + homeLift}px + var(--safe-bottom, 0px))`
+    : 36 + homeLift
   const heroBottom = compact
-    ? 'calc(40px + var(--safe-bottom, 0px))'
-    : 56
+    ? `calc(${40 + homeLift}px + var(--safe-bottom, 0px))`
+    : 56 + homeLift
+  const homeTipBottom = compact
+    ? `calc(${88 + homeLift}px + var(--safe-bottom, 0px))`
+    : 102 + homeLift
 
+  const keyboardInset = useKeyboardInset()
   const kbVisible = kb && !open && !bgEditing
   const badge = !seen && !open
-  // Desktop offsets match pre-mobile work exactly (`kb`, not kbVisible).
-  const composerPb = kb ? 10 : 34
-  const attachBottom = kb ? 72 : 96
-  const threadPb = kb ? 100 : 124
-  // Mobile-only chat layout (do not alter desktop values above).
-  const composerBarH = 72
+  // Thread bottom always matches the live composer height (same gap with/without keyboard).
+  const composerPb = kb ? 12 : 34
+  const desktopComposerH = 10 + 52 + composerPb
+  const attachBottom = desktopComposerH
+  // Mobile: real keyboard inset pushes the composer + thread up.
   const mobileComposerPad = kbVisible
     ? 8
     : 'calc(8px + var(--safe-bottom, 0px))'
-  const mobileAttachBottom = kbVisible ? composerBarH : composerBarH + 8
-  const mobileThreadBottom = composerBarH + (kbVisible ? 8 : 16)
+  const mobileComposerH = 10 + 52 + 8
+  const mobileKbLift = compact ? keyboardInset : 0
+  const mobileAttachBottom = mobileComposerH + 8 + mobileKbLift
+  const mobileThreadBottom = kbVisible
+    ? mobileComposerH + mobileKbLift
+    : `calc(${mobileComposerH}px + var(--safe-bottom, 0px))`
+  const threadBottom = compact ? mobileThreadBottom : desktopComposerH
+  const composerBottom = compact ? mobileKbLift : 0
+  const kbMotion = `${KB_ANIM_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`
   const chatBgKey = yoshi.image
 
   useEffect(() => {
@@ -519,10 +537,24 @@ export function FuiboFlower({
   useEffect(() => {
     const el = threadRef.current
     if (!el || screen !== 'chat') return
-    requestAnimationFrame(() => {
+
+    const pin = () => {
       el.scrollTop = el.scrollHeight
-    })
-  }, [thread.length, kb, screen])
+    }
+    pin()
+
+    // Keep the latest message glued to the bottom while keyboard height animates (open + close).
+    let raf = 0
+    const started = performance.now()
+    const tick = (now: number) => {
+      pin()
+      if (now - started < KB_ANIM_MS + 40) {
+        raf = window.requestAnimationFrame(tick)
+      }
+    }
+    raf = window.requestAnimationFrame(tick)
+    return () => window.cancelAnimationFrame(raf)
+  }, [thread.length, kb, screen, keyboardInset])
 
   useEffect(() => {
     const onMessage = (e: MessageEvent) => {
@@ -535,6 +567,7 @@ export function FuiboFlower({
   const startTopicPayload = (payload: TopicPayload) => {
     setScreen('chat')
     setOpen(false)
+    setHomeTipOpen(false)
     setSeen(true)
     setKb(false)
     setAttach(false)
@@ -562,6 +595,7 @@ export function FuiboFlower({
 
   const toggle = () => {
     setOpen((o) => !o)
+    setHomeTipOpen(false)
     setSeen(true)
     setIdx((prev) => (open ? prev : 0))
     setAttach(false)
@@ -810,42 +844,45 @@ export function FuiboFlower({
         )}
       </div>
 
-      <button
-        type="button"
-        onClick={() => startTopicPayload(HOME_TOPIC_PAYLOAD)}
-        aria-label={`Start chat topic: ${HOME_TOPIC}`}
+      {homeTipOpen && (
+        <button
+          type="button"
+          onClick={() => startTopicPayload(HOME_TOPIC_PAYLOAD)}
+          aria-label={`Start chat topic: ${HOME_TIP}`}
+          style={{
+            position: 'absolute',
+            left: 30,
+            bottom: homeTipBottom,
+            maxWidth: 214,
+            zIndex: 9,
+            background: '#FFFFFF',
+            borderRadius: '14px 14px 14px 4px',
+            border: 'none',
+            padding: '12px 15px',
+            fontSize: 14,
+            lineHeight: 1.4,
+            fontFamily: 'inherit',
+            textAlign: 'left',
+            color: '#2A2620',
+            boxShadow: '0 10px 26px rgba(26,24,20,.28)',
+            cursor: 'pointer',
+            animation: 'fuiboScrimIn .2s ease',
+          }}
+        >
+          {HOME_TIP}
+        </button>
+      )}
+
+      <div
+        onClick={() => setHomeTipOpen((v) => !v)}
+        role="button"
+        aria-expanded={homeTipOpen}
+        aria-label={
+          homeTipOpen ? 'Hide topic tip' : `Show topic tip: ${HOME_TIP}`
+        }
         style={{
           position: 'absolute',
           left: 30,
-          bottom: bubbleBottom,
-          maxWidth: 214,
-          zIndex: 8,
-          background: '#FFFFFF',
-          borderRadius: '14px 14px 14px 4px',
-          border: 'none',
-          padding: '12px 15px',
-          fontSize: 14,
-          lineHeight: 1.4,
-          fontFamily: 'inherit',
-          textAlign: 'left',
-          color: '#2A2620',
-          boxShadow: '0 10px 26px rgba(26,24,20,.28)',
-          cursor: 'pointer',
-        }}
-      >
-        {HOME_TOPIC}
-      </button>
-
-      <div
-        onClick={() => {
-          setScreen('chat')
-          setOpen(false)
-        }}
-        role="button"
-        aria-label={`Chat with ${yoshi.name}, ${knownUserName}`}
-        style={{
-          position: 'absolute',
-          right: 30,
           bottom: homeBottom,
           zIndex: 8,
           width: 58,
@@ -859,8 +896,65 @@ export function FuiboFlower({
           cursor: 'pointer',
         }}
       >
-        <ChatBubbleIcon />
+        <ThinkingIcon />
       </div>
+
+      <button
+        type="button"
+        onClick={() => {
+          setHomeTipOpen(false)
+          setScreen('chat')
+          setOpen(false)
+        }}
+        aria-label={`Chat with ${yoshi.name}, ${knownUserName}`}
+        style={{
+          position: 'absolute',
+          right: 24,
+          bottom: bubbleBottom,
+          maxWidth: 248,
+          zIndex: 8,
+          display: 'flex',
+          alignItems: 'center',
+          gap: 22,
+          background: '#FFFFFF',
+          borderRadius: 24,
+          border: '1.5px solid #17151C',
+          padding: '8px 8px 8px 18px',
+          fontSize: 17,
+          lineHeight: 1.25,
+          fontFamily: 'inherit',
+          fontWeight: 500,
+          textAlign: 'left',
+          color: '#17151C',
+          boxShadow: '0 8px 22px rgba(26,24,20,.22)',
+          cursor: 'pointer',
+        }}
+      >
+        <span style={{ flex: 1, minWidth: 0 }}>{HOME_TOPIC}</span>
+        <span
+          aria-hidden
+          style={{
+            flex: 'none',
+            width: 40,
+            height: 40,
+            borderRadius: '50%',
+            background: '#17151C',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          <svg width="18" height="18" viewBox="0 0 14 14" fill="none">
+            <path
+              d="M3 7h7.5M7.5 3.5L11 7l-3.5 3.5"
+              stroke="#fff"
+              strokeWidth="1.8"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+            />
+          </svg>
+        </span>
+      </button>
 
       <div
         onClick={toggle}
@@ -977,7 +1071,7 @@ export function FuiboFlower({
           top: 0,
           left: 0,
           right: 0,
-          bottom: compact ? mobileThreadBottom : 0,
+          bottom: threadBottom,
           overflowY: bgEditing ? 'hidden' : 'auto',
           pointerEvents: bgEditing ? 'none' : 'auto',
           zIndex: 1,
@@ -987,7 +1081,8 @@ export function FuiboFlower({
           paddingTop: 250,
           paddingLeft: 18,
           paddingRight: 18,
-          paddingBottom: compact ? 16 : threadPb,
+          paddingBottom: 16,
+          transition: `bottom ${kbMotion}`,
           WebkitMaskImage:
             'linear-gradient(to bottom,transparent 122px,#000 312px)',
           maskImage: 'linear-gradient(to bottom,transparent 122px,#000 312px)',
@@ -1356,7 +1451,7 @@ export function FuiboFlower({
           position: 'absolute',
           left: 0,
           right: 0,
-          bottom: 0,
+          bottom: composerBottom,
           zIndex: 15,
           display: 'flex',
           alignItems: 'center',
@@ -1367,6 +1462,9 @@ export function FuiboFlower({
           background: '#EDECF2',
           pointerEvents: bgEditing ? 'none' : 'auto',
           opacity: bgEditing ? 0.4 : 1,
+          transition: compact
+            ? `bottom ${kbMotion}`
+            : `padding ${kbMotion}`,
         }}
       >
         <div
@@ -1411,7 +1509,20 @@ export function FuiboFlower({
               setKb(true)
               setAttach(false)
             }}
-            onBlur={() => setKb(false)}
+            onBlur={() => {
+              // Keep keyboard up when focus moves into the fake keyboard / composer chrome
+              window.setTimeout(() => {
+                const active = document.activeElement
+                if (active && isTextField(active)) return
+                if (
+                  active instanceof Element &&
+                  active.closest('[data-ios-keyboard], [data-keep-keyboard]')
+                ) {
+                  return
+                }
+                setKb(false)
+              }, 0)
+            }}
             onKeyDown={(e) => {
               if (e.key === 'Enter') {
                 e.preventDefault()
@@ -1509,7 +1620,12 @@ export function FuiboFlower({
   )
 
   return (
-    <IOSDevice keyboard={kbVisible && screen === 'chat'}>
+    <IOSDevice
+      // In chat: follow kb state when open; otherwise let focus auto-open the fake keyboard.
+      keyboard={
+        screen === 'chat' ? (kbVisible ? true : undefined) : false
+      }
+    >
       {screen === 'home'
         ? home
         : screen === 'chat'
