@@ -356,9 +356,11 @@ export function IOSKeyboard({ dark = false }: Props) {
       style={{
         position: 'relative',
         zIndex: 15,
-        borderRadius: 27,
+        height: '100%',
+        boxSizing: 'border-box',
+        borderRadius: '27px 27px 0 0',
         overflow: 'visible',
-        padding: '11px 0 2px',
+        padding: '11px 0 0',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -377,7 +379,7 @@ export function IOSKeyboard({ dark = false }: Props) {
         style={{
           position: 'absolute',
           inset: 0,
-          borderRadius: 27,
+          borderRadius: '27px 27px 0 0',
           overflow: 'hidden',
           backdropFilter: 'blur(12px) saturate(180%)',
           WebkitBackdropFilter: 'blur(12px) saturate(180%)',
@@ -388,13 +390,14 @@ export function IOSKeyboard({ dark = false }: Props) {
         style={{
           position: 'absolute',
           inset: 0,
-          borderRadius: 27,
+          borderRadius: '27px 27px 0 0',
           boxShadow: dark
             ? 'inset 1.5px 1.5px 1px rgba(255,255,255,0.15)'
             : 'inset 1.5px 1.5px 1px rgba(255,255,255,0.7), inset -1px -1px 1px rgba(255,255,255,0.4)',
           border: dark
             ? '0.5px solid rgba(255,255,255,0.15)'
             : '0.5px solid rgba(0,0,0,0.06)',
+          borderBottom: 'none',
           pointerEvents: 'none',
         }}
       />
@@ -490,7 +493,14 @@ export function IOSKeyboard({ dark = false }: Props) {
         </div>
       </div>
 
-      <div style={{ height: 56, width: '100%', position: 'relative' }} />
+      <div
+        style={{
+          flex: 1,
+          minHeight: 34,
+          width: '100%',
+          position: 'relative',
+        }}
+      />
     </div>
   )
 }

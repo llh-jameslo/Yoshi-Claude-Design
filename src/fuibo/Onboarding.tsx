@@ -2199,8 +2199,73 @@ function RelationshipStep({
 const MEET_YOSHI_COUNT = 11
 const MEET_VARIATIONS = 4
 
+/** Presentation gender for each on-disk slot (1.x → index 0). */
+const MEET_YOSHI_GENDER = [
+  'f', // 1 teal braids
+  'f', // 2 cyber / pink
+  'm', // 3 gold sunglasses
+  'f', // 4 bob / looking up
+  'f', // 5 hannya
+  'f', // 6 race car
+  'm', // 7 curly patchwork (default start)
+  'm', // 8 sunflower
+  'm', // 9 red hair
+  'f', // 10 glasses / starlight
+  'm', // 11 gas mask
+] as const
+
+/**
+ * Scrub order: alternate M/F, with the default Yoshi centered in the rail.
+ * Display index (0..n-1) → on-disk slot index (0 → file 1.x).
+ */
+function buildAlternatingMeetOrder(centerAsset: number) {
+  const males: number[] = []
+  const females: number[] = []
+  for (let i = 0; i < MEET_YOSHI_COUNT; i++) {
+    if (i === centerAsset) continue
+    if (MEET_YOSHI_GENDER[i] === 'm') males.push(i)
+    else females.push(i)
+  }
+
+  const startGender = MEET_YOSHI_GENDER[centerAsset]
+  const same = startGender === 'm' ? males : females
+  const other = startGender === 'm' ? females : males
+  const seq = [centerAsset]
+
+  let a = 0
+  let b = 0
+  while (a < same.length || b < other.length) {
+    if (b < other.length) seq.push(other[b++])
+    if (a < same.length) seq.push(same[a++])
+  }
+
+  // Rotate so the default asset lands in the middle of the scrub range
+  const center = Math.floor((MEET_YOSHI_COUNT - 1) / 2)
+  const n = seq.length
+  return Array.from({ length: n }, (_, i) => seq[(i - center + n) % n])
+}
+
+/** Curly patchwork portrait set on disk (file 7.x → index 6) — default at center. */
+const MEET_START_ASSET = 6
+const MEET_YOSHI_ORDER = (() => {
+  const order = buildAlternatingMeetOrder(MEET_START_ASSET)
+  // Swap bob / looking-up (4.x) with hannya / red demon (5.x)
+  const bob = order.indexOf(3)
+  const demon = order.indexOf(4)
+  if (bob >= 0 && demon >= 0) {
+    ;[order[bob], order[demon]] = [order[demon], order[bob]]
+  }
+  return order
+})()
+
+function meetAssetIndex(displayIndex: number) {
+  const clamped = Math.max(0, Math.min(MEET_YOSHI_COUNT - 1, displayIndex))
+  return MEET_YOSHI_ORDER[clamped] ?? clamped
+}
+
 function meetImageSrc(yoshiIndex: number, variation: number) {
-  return `/assets/meet-yoshi/${yoshiIndex + 1}.${variation + 1}.png`
+  const asset = meetAssetIndex(yoshiIndex)
+  return `/assets/meet-yoshi/${asset + 1}.${variation + 1}.png`
 }
 
 export type MeetSelection = {
@@ -2233,8 +2298,8 @@ const MEET_YOSHI_PX = 64
 const MEET_LOOK_PX = 56
 const AXIS_LOCK_PX = 12
 /** Mid-range so scrubbing works both ways from the start */
-/** Curly-hair portrait set (1-based slot 7 → index 6). */
-const START_YOSHI = 6
+/** Center card in the alternating gender scrub (curly male). */
+const START_YOSHI = Math.floor((MEET_YOSHI_COUNT - 1) / 2)
 const START_LOOK = Math.floor((MEET_VARIATIONS - 1) / 2)
 
 function WarmthSpinner({
@@ -2427,6 +2492,46 @@ function WarmthSpinner({
   )
 }
 
+function MeetHintArrow({
+  dir,
+  animation,
+}: {
+  dir: 'left' | 'right' | 'up' | 'down'
+  animation: string
+}) {
+  const rotate =
+    dir === 'right' ? 0 : dir === 'left' ? 180 : dir === 'down' ? 90 : -90
+  return (
+    <span
+      aria-hidden
+      style={{
+        display: 'inline-flex',
+        width: 28,
+        height: 28,
+        alignItems: 'center',
+        justifyContent: 'center',
+        animation,
+      }}
+    >
+      <svg
+        width="26"
+        height="26"
+        viewBox="0 0 26 26"
+        fill="none"
+        style={{ transform: `rotate(${rotate}deg)` }}
+      >
+        <path
+          d="M5 13h15.5M14.2 6.5 20.5 13l-6.3 6.5"
+          stroke="currentColor"
+          strokeWidth="1.6"
+          strokeLinecap="round"
+          strokeLinejoin="round"
+        />
+      </svg>
+    </span>
+  )
+}
+
 function MeetStep({
   onChosen,
   onBack,
@@ -2446,6 +2551,8 @@ function MeetStep({
   const [showFrame, setShowFrame] = useState({ y: START_YOSHI, v: START_LOOK })
   const [holdProgress, setHoldProgress] = useState(0)
   const [panning, setPanning] = useState(false)
+  const [showDragHint, setShowDragHint] = useState(true)
+  const [chooseFlash, setChooseFlash] = useState(false)
   const [guide, setGuide] = useState<
     { kind: 'horizontal'; t: number } | { kind: 'vertical'; t: number } | null
   >(null)
@@ -2466,12 +2573,15 @@ function MeetStep({
   const holdStart = useRef(0)
   const holdBtnRef = useRef<HTMLButtonElement>(null)
   const photoInputRef = useRef<HTMLInputElement>(null)
+  const chooseFlashTimer = useRef(0)
   const selectionRef = useRef<MeetSelection>({
     image: meetImageSrc(START_YOSHI, START_LOOK),
     warmth: 50,
   })
   const onChosenRef = useRef(onChosen)
   onChosenRef.current = onChosen
+
+  const dismissDragHint = () => setShowDragHint(false)
 
   const customYoshiIndex = MEET_YOSHI_COUNT
   const totalYoshis = MEET_YOSHI_COUNT + (customPhoto ? 1 : 0)
@@ -2561,7 +2671,13 @@ function MeetStep({
       holding.current = false
       cancelAnimationFrame(holdRaf.current)
       holdRaf.current = 0
-      onChosenRef.current(selectionRef.current)
+      dismissDragHint()
+      setHoldProgress(0)
+      setChooseFlash(true)
+      window.clearTimeout(chooseFlashTimer.current)
+      chooseFlashTimer.current = window.setTimeout(() => {
+        onChosenRef.current(selectionRef.current)
+      }, 2000)
       return
     }
     holdRaf.current = requestAnimationFrame(tickHold)
@@ -2570,6 +2686,8 @@ function MeetStep({
   const startHold = (e: ReactPointerEvent<HTMLButtonElement>) => {
     e.preventDefault()
     e.stopPropagation()
+    if (chooseFlash) return
+    dismissDragHint()
     holdBtnRef.current?.setPointerCapture(e.pointerId)
     holding.current = true
     holdStart.current = 0
@@ -2612,11 +2730,18 @@ function MeetStep({
     e.currentTarget.value = ''
   }
 
-  useEffect(() => () => cancelAnimationFrame(holdRaf.current), [])
+  useEffect(
+    () => () => {
+      cancelAnimationFrame(holdRaf.current)
+      window.clearTimeout(chooseFlashTimer.current)
+    },
+    [],
+  )
 
   const onPointerDown = (e: ReactPointerEvent<HTMLDivElement>) => {
     const el = stageRef.current
-    if (!el) return
+    if (!el || chooseFlash) return
+    dismissDragHint()
     el.setPointerCapture(e.pointerId)
     lastPtr.current = { x: e.clientX, y: e.clientY }
     panOrigin.current = { x: e.clientX, y: e.clientY }
@@ -2747,7 +2872,7 @@ function MeetStep({
           style={{
             position: 'relative',
             width: 'min(100%, 360px)',
-            flex: '0 1 66%',
+            flex: '0 1 72%',
             maxHeight: 'none',
             minHeight: 0,
             touchAction: 'none',
@@ -2872,68 +2997,122 @@ function MeetStep({
           )}
 
           <WarmthSpinner warmth={warmth} onWarmthChange={setWarmth} />
+
+          {showDragHint && (
+            <button
+              type="button"
+              aria-label="Drag to explore. Tap to dismiss hint."
+              onClick={(e) => {
+                e.stopPropagation()
+                dismissDragHint()
+              }}
+              onPointerDown={(e) => e.stopPropagation()}
+              style={{
+                position: 'absolute',
+                inset: 0,
+                zIndex: 8,
+                border: 'none',
+                borderRadius: 28,
+                padding: 0,
+                cursor: 'pointer',
+                background: 'rgba(20,17,26,0.42)',
+                animation: 'meetHintScrimIn .35s ease both',
+                fontFamily: 'inherit',
+                boxSizing: 'border-box',
+                color: '#fff',
+              }}
+            >
+              {/* Up / down — left, vertically centered, copy left-aligned */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 18,
+                  top: '50%',
+                  transform: 'translateY(-50%)',
+                  display: 'flex',
+                  flexDirection: 'column',
+                  alignItems: 'flex-start',
+                  gap: 8,
+                  textAlign: 'left',
+                }}
+              >
+                <MeetHintArrow
+                  dir="up"
+                  animation="meetHintArrowYUp 1.1s ease-in-out infinite"
+                />
+                <div>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      letterSpacing: '-0.02em',
+                    }}
+                  >
+                    Drag up / down
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 12,
+                      opacity: 0.75,
+                    }}
+                  >
+                    Change looks
+                  </div>
+                </div>
+                <MeetHintArrow
+                  dir="down"
+                  animation="meetHintArrowY 1.1s ease-in-out infinite"
+                />
+              </div>
+
+              {/* Left / right — near bottom, centered */}
+              <div
+                style={{
+                  position: 'absolute',
+                  left: 16,
+                  right: 16,
+                  bottom: 20,
+                  display: 'flex',
+                  alignItems: 'center',
+                  justifyContent: 'center',
+                  gap: 14,
+                }}
+              >
+                <MeetHintArrow
+                  dir="left"
+                  animation="meetHintArrowXLeft 1.1s ease-in-out infinite"
+                />
+                <div style={{ textAlign: 'center' }}>
+                  <div
+                    style={{
+                      fontSize: 14,
+                      fontWeight: 600,
+                      letterSpacing: '-0.02em',
+                    }}
+                  >
+                    Drag left / right
+                  </div>
+                  <div
+                    style={{
+                      marginTop: 4,
+                      fontSize: 12,
+                      opacity: 0.75,
+                    }}
+                  >
+                    Swap Yoshi
+                  </div>
+                </div>
+                <MeetHintArrow
+                  dir="right"
+                  animation="meetHintArrowX 1.1s ease-in-out infinite"
+                />
+              </div>
+            </button>
+          )}
         </div>
 
-        <div
-          style={{
-            marginTop: 22,
-            marginBottom: 22,
-            display: 'flex',
-            justifyContent: 'center',
-            alignItems: 'center',
-            gap: 9,
-            color: MUTED,
-            fontSize: 13,
-            lineHeight: 1,
-            flex: 'none',
-          }}
-        >
-          <span>↔ swap Yoshi</span>
-          <span>·</span>
-          <span
-            style={
-              compact
-                ? {
-                    display: 'inline-flex',
-                    alignItems: 'center',
-                    gap: 4,
-                    lineHeight: 1,
-                  }
-                : undefined
-            }
-          >
-            {compact ? (
-              <>
-                {/* SVG up/down arrow — same weight as ↔ / ↻, never emoji on iOS */}
-                <svg
-                  width="14"
-                  height="14"
-                  viewBox="0 0 16 16"
-                  aria-hidden
-                  style={{
-                    flex: 'none',
-                    display: 'block',
-                    marginTop: -1,
-                  }}
-                >
-                  <path
-                    d="M8 1.5v13M4.5 4.5L8 1.5l3.5 3M4.5 11.5L8 14.5l3.5-3"
-                    fill="none"
-                    stroke="currentColor"
-                    strokeWidth="1.7"
-                    strokeLinecap="round"
-                    strokeLinejoin="round"
-                  />
-                </svg>
-                looks
-              </>
-            ) : (
-              '↕ looks'
-            )}
-          </span>
-          <span>·</span>
-          <span>↻ warmth</span>
-        </div>
+        <div aria-hidden style={{ height: 24, flex: 'none' }} />
 
         <div
           style={{
@@ -3018,6 +3197,20 @@ function MeetStep({
           </button>
         </div>
       </div>
+
+      {chooseFlash && (
+        <div
+          aria-hidden
+          style={{
+            position: 'absolute',
+            inset: 0,
+            zIndex: 60,
+            pointerEvents: 'auto',
+            background: '#FFFFFF',
+            animation: 'meetChooseFlash 2s ease-out both',
+          }}
+        />
+      )}
     </ScreenShell>
   )
 }
@@ -3050,6 +3243,7 @@ function NameYoshiStep({
           flexDirection: 'column',
           overflow: 'hidden',
           touchAction: focused ? 'none' : undefined,
+          animation: 'meetNameEnter .7s cubic-bezier(0.22, 1, 0.36, 1) both',
         }}
       >
         {/* Shrinks when desktop fake keyboard is visible so the input stays 58px */}

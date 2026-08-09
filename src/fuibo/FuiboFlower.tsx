@@ -13,18 +13,187 @@ import { SwitchYoshi } from './SwitchYoshi'
 import { getYoshi } from './yoshis'
 import { toSwitchYoshi, type OwnedYoshi } from './ownedYoshis'
 
+type LinkPreview = {
+  url: string
+  domain: string
+  title: string
+  description: string
+  image: string
+}
+
+type TopicNote = {
+  label: string
+  detail: string
+}
+
 type Msg =
-  | { type: 'them'; text: string }
+  | {
+      type: 'them'
+      text: string
+      image?: string
+      link?: LinkPreview
+      note?: TopicNote
+    }
   | { type: 'me'; text: string }
   | { type: 'divider' }
 
-const OPENERS = [
-  "Okay — I dug into that AWS outage story for you. Turns out a single config push took down half the internet's Tuesday. Want the short version or the nerdy version?",
-  "Here's the roadmap thing you flagged. Three items shipped, two slipped to next sprint. Want me to flag which ones are blocking you?",
-  "Circling back on this one — you never told me how it went. So? How'd it go?",
+type TopicPayload = {
+  text: string
+  image?: string
+  link?: LinkPreview
+  note?: TopicNote
+}
+
+/** First message after tapping a topic card — straight to the point + media */
+const TOPIC_PAYLOADS: TopicPayload[] = [
+  {
+    text: 'Saturday, 11am at Riverside Park — take me with you!',
+    link: {
+      url: 'https://riversidepark.events/dog-show',
+      domain: 'riversidepark.events',
+      title: 'Riverside Dog Show — Weekend Edition',
+      description:
+        'Outdoor rings, puppies, and treat stalls this Saturday & Sunday.',
+      image: '/assets/topics/dog-show-preview.png',
+    },
+  },
+  {
+    text: 'So… how did that 1:1 with your manager go?',
+  },
+  {
+    text: 'This is the one — slow, warm, easy to fall into.',
+    link: {
+      url: 'https://watch.example/soft-hours',
+      domain: 'watch.example',
+      title: 'Soft Hours',
+      description: 'A quiet series for nights when you mostly want company.',
+      image: '/assets/topics/quiet-show-preview.png',
+    },
+  },
 ]
 
 const HOME_TOPIC = 'Wanna see the baby version of your rabbit?'
+
+const HOME_TOPIC_PAYLOAD: TopicPayload = {
+  text: 'Remember when you showed me your rabbit? This is how they’d look as a baby.',
+  image: '/assets/topics/baby-rabbit.png',
+}
+
+function ChatLinkPreview({ link }: { link: LinkPreview }) {
+  return (
+    <a
+      href={link.url}
+      target="_blank"
+      rel="noreferrer"
+      onClick={(e) => e.stopPropagation()}
+      style={{
+        display: 'block',
+        borderRadius: 12,
+        overflow: 'hidden',
+        background: '#F4F2F7',
+        textDecoration: 'none',
+        color: 'inherit',
+        marginBottom: 8,
+        border: '1px solid rgba(26,24,20,0.06)',
+        flexShrink: 0,
+      }}
+    >
+      <img
+        src={link.image}
+        alt=""
+        style={{
+          width: '100%',
+          height: 128,
+          objectFit: 'cover',
+          display: 'block',
+          flexShrink: 0,
+        }}
+      />
+      <div style={{ padding: '10px 12px 12px' }}>
+        <div
+          style={{
+            fontSize: 11,
+            fontWeight: 600,
+            letterSpacing: '0.04em',
+            textTransform: 'uppercase',
+            color: 'rgba(26,24,20,0.45)',
+            marginBottom: 4,
+          }}
+        >
+          {link.domain}
+        </div>
+        <div
+          style={{
+            fontSize: 14,
+            fontWeight: 600,
+            letterSpacing: '-0.02em',
+            color: '#17151C',
+            lineHeight: 1.3,
+          }}
+        >
+          {link.title}
+        </div>
+        <div
+          style={{
+            marginTop: 4,
+            fontSize: 12.5,
+            lineHeight: 1.35,
+            color: 'rgba(26,24,20,0.55)',
+          }}
+        >
+          {link.description}
+        </div>
+      </div>
+    </a>
+  )
+}
+
+function ChatNoteCard({ note }: { note: TopicNote }) {
+  return (
+    <div
+      style={{
+        borderRadius: 12,
+        background: '#FBF3DC',
+        border: '1px solid rgba(192,90,60,0.12)',
+        padding: '12px 14px',
+        marginBottom: 8,
+        flexShrink: 0,
+      }}
+    >
+      <div
+        style={{
+          fontSize: 11,
+          fontWeight: 600,
+          letterSpacing: '0.06em',
+          textTransform: 'uppercase',
+          color: 'rgba(42,38,32,0.45)',
+          marginBottom: 6,
+        }}
+      >
+        Context
+      </div>
+      <div
+        style={{
+          fontSize: 15,
+          fontWeight: 600,
+          color: '#2A2620',
+          letterSpacing: '-0.02em',
+        }}
+      >
+        {note.label}
+      </div>
+      <div
+        style={{
+          marginTop: 3,
+          fontSize: 13,
+          color: 'rgba(42,38,32,0.55)',
+        }}
+      >
+        {note.detail}
+      </div>
+    </div>
+  )
+}
 
 const INITIAL_THREAD: Msg[] = [
   {
@@ -363,13 +532,23 @@ export function FuiboFlower({
     return () => window.removeEventListener('message', onMessage)
   }, [])
 
-  const startTopicWithText = (text: string) => {
+  const startTopicPayload = (payload: TopicPayload) => {
     setScreen('chat')
     setOpen(false)
     setSeen(true)
     setKb(false)
     setAttach(false)
-    setThread((t) => [...t, { type: 'divider' }, { type: 'them', text }])
+    setThread((t) => [
+      ...t,
+      { type: 'divider' },
+      {
+        type: 'them',
+        text: payload.text,
+        image: payload.image,
+        link: payload.link,
+        note: payload.note,
+      },
+    ])
   }
 
   const startTopic = (i: number) => {
@@ -377,7 +556,8 @@ export function FuiboFlower({
       dragMoved.current = false
       return
     }
-    startTopicWithText(OPENERS[i])
+    const payload = TOPIC_PAYLOADS[i]
+    if (payload) startTopicPayload(payload)
   }
 
   const toggle = () => {
@@ -632,7 +812,7 @@ export function FuiboFlower({
 
       <button
         type="button"
-        onClick={() => startTopicWithText(HOME_TOPIC)}
+        onClick={() => startTopicPayload(HOME_TOPIC_PAYLOAD)}
         aria-label={`Start chat topic: ${HOME_TOPIC}`}
         style={{
           position: 'absolute',
@@ -820,27 +1000,56 @@ export function FuiboFlower({
             : {}),
         }}
       >
-        <div aria-hidden style={{ marginTop: 'auto' }} />
+        <div aria-hidden style={{ flex: '1 1 auto', minHeight: 0 }} />
         {thread.map((m, i) => {
           if (m.type === 'them') {
+            const rich = Boolean(m.image || m.link || m.note)
             return (
               <div
                 key={i}
                 style={{
-                  maxWidth: '80%',
+                  maxWidth: rich ? 280 : '80%',
+                  width: rich ? '85%' : undefined,
                   alignSelf: 'flex-start',
+                  flexShrink: 0,
                   background: '#FFFFFF',
                   borderRadius: 18,
-                  padding: '14px 16px',
+                  padding: rich ? 10 : '14px 16px',
                   fontSize: 15,
                   lineHeight: 1.5,
                   color: '#2A2620',
                   boxShadow: '0 4px 16px rgba(26,24,20,.10)',
-                  whiteSpace: 'pre-line',
                   animation: 'fuiboMsgIn .28s ease',
+                  overflow: 'hidden',
                 }}
               >
-                {m.text}
+                {m.image && (
+                  <img
+                    src={m.image}
+                    alt=""
+                    style={{
+                      width: '100%',
+                      aspectRatio: '1 / 1',
+                      objectFit: 'cover',
+                      borderRadius: 12,
+                      display: 'block',
+                      flexShrink: 0,
+                      marginBottom: m.text ? 10 : 0,
+                    }}
+                  />
+                )}
+                {m.link && <ChatLinkPreview link={m.link} />}
+                {m.note && <ChatNoteCard note={m.note} />}
+                {m.text ? (
+                  <div
+                    style={{
+                      padding: rich ? '4px 6px 6px' : 0,
+                      whiteSpace: 'pre-line',
+                    }}
+                  >
+                    {m.text}
+                  </div>
+                ) : null}
               </div>
             )
           }
@@ -851,6 +1060,7 @@ export function FuiboFlower({
                 style={{
                   maxWidth: '80%',
                   alignSelf: 'flex-end',
+                  flexShrink: 0,
                   background: '#CFE9DE',
                   borderRadius: 18,
                   padding: '14px 16px',
@@ -873,6 +1083,7 @@ export function FuiboFlower({
                 alignItems: 'center',
                 gap: 10,
                 padding: '8px 0',
+                flexShrink: 0,
                 animation: 'fuiboMsgIn .28s ease',
               }}
             >
@@ -1268,8 +1479,8 @@ export function FuiboFlower({
       }}
     >
       <iframe
-        title="Mowing with Yoshi"
-        src="/mowing/mowing_with_yoshi.html?embed=1"
+        title={`Mowing with ${yoshi.name}`}
+        src={`/mowing/mowing_with_yoshi.html?embed=1&avatar=${encodeURIComponent(yoshi.image)}&name=${encodeURIComponent(yoshi.name)}`}
         style={{
           position: 'absolute',
           inset: 0,

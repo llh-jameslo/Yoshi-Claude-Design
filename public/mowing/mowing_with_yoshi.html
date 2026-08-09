@@ -1211,6 +1211,16 @@
   const chatInput = document.getElementById('chatInput');
   const sendBtn = document.getElementById('sendBtn');
 
+  // Prefer the companion the user chose in the app (passed via query params)
+  const embedParams = new URLSearchParams(location.search);
+  const chosenAvatar = embedParams.get('avatar');
+  const chosenName = (embedParams.get('name') || '').trim() || 'Yoshi';
+  const avatarImg = document.querySelector('#yoshiAvatar img');
+  if (avatarImg && chosenAvatar) {
+    avatarImg.src = chosenAvatar;
+    avatarImg.alt = chosenName;
+  }
+
   let bubbleFadeTimer = null, chatOpen = false, shownTapHint = false;
   function showBubble(html, holdMs) {
     yoshiBubble.innerHTML = html;
@@ -1318,7 +1328,7 @@
     if (/(love|like) (this|it|the game|mowing)/.test(t))
       return pick(["right?? there's something about turning green into tidy brown stripes", "me too. it's the little clippings flying off that get me"]);
     if (/(your name|who are you|what are you)/.test(t))
-      return pick(["i'm yoshi 🌱 i keep you company while you mow. that's the whole job and i love it"]);
+      return pick([`i'm ${chosenName.toLowerCase()} 🌱 i keep you company while you mow. that's the whole job and i love it`]);
     if (/(thank|thanks|thx)/.test(t))
       return pick(["anytime 💚", "of course. that's what i'm here for"]);
     if (/(bye|goodnight|good night|gtg|see you|gotta go)/.test(t))

@@ -1,12 +1,53 @@
 import { useRef, type MouseEvent, type UIEvent } from 'react'
 
 const STRIDE = 330
+const CARD_W = 316
+const CARD_H = 168
 
 const CARDS = [
-  { src: '/image-mrplat2o-7q3w.png', alt: 'Found for you' },
-  { src: '/assets/topic-1.png', alt: 'Feature roadmap' },
-  { src: '/assets/topic-3.png', alt: 'Follow up' },
+  {
+    eyebrow: 'Found for you',
+    title: 'There’s a dog show nearby this weekend',
+    cta: 'Check it out',
+    tone: 'lilac' as const,
+  },
+  {
+    eyebrow: 'Checking in',
+    title: 'How did that 1:1 with your manager go?',
+    cta: 'Tell me',
+    tone: 'peach' as const,
+  },
+  {
+    eyebrow: 'For later',
+    title: 'Found a quiet show we can watch together',
+    cta: 'Show me',
+    tone: 'mint' as const,
+  },
 ] as const
+
+const TONES: Record<
+  (typeof CARDS)[number]['tone'],
+  { bg: string; blobA: string; blobB: string; ink: string }
+> = {
+  lilac: {
+    bg: 'linear-gradient(145deg, #F4F0FA 0%, #EDE7F7 48%, #F7F2EA 100%)',
+    blobA: 'rgba(168, 152, 207, 0.35)',
+    blobB: 'rgba(192, 90, 60, 0.16)',
+    ink: '#1A2756',
+  },
+  peach: {
+    bg: 'linear-gradient(145deg, #FBF1EA 0%, #F6E4D8 45%, #F3EAF4 100%)',
+    blobA: 'rgba(224, 140, 110, 0.32)',
+    blobB: 'rgba(168, 152, 207, 0.22)',
+    ink: '#2A2620',
+  },
+  mint: {
+    bg: 'linear-gradient(145deg, #EEF6F2 0%, #E7F0EA 50%, #F4F0FA 100%)',
+    blobA: 'rgba(120, 170, 150, 0.28)',
+    blobB: 'rgba(192, 90, 60, 0.14)',
+    ink: '#1A2756',
+  },
+}
 
 type Props = {
   idx: number
@@ -111,8 +152,9 @@ export function TopicDrawer({
         }}
       >
         {CARDS.map((card, i) => (
-          <div
-            key={card.src}
+          <button
+            key={card.title}
+            type="button"
             onClick={() => {
               if (getDragMoved()) {
                 setDragMoved(false)
@@ -120,20 +162,20 @@ export function TopicDrawer({
               }
               onTapCard(i)
             }}
-            style={{ flex: 'none', width: 316 }}
+            style={{
+              flex: 'none',
+              width: CARD_W,
+              height: CARD_H,
+              padding: 0,
+              border: 'none',
+              background: 'transparent',
+              cursor: 'pointer',
+              font: 'inherit',
+              textAlign: 'left',
+            }}
           >
-            <img
-              src={card.src}
-              draggable={false}
-              style={{
-                width: 316,
-                borderRadius: 16,
-                display: 'block',
-                pointerEvents: 'none',
-              }}
-              alt={card.alt}
-            />
-          </div>
+            <TopicCard {...card} />
+          </button>
         ))}
       </div>
       <div
@@ -145,6 +187,131 @@ export function TopicDrawer({
         }}
       >
         {dots}
+      </div>
+    </div>
+  )
+}
+
+function TopicCard({
+  eyebrow,
+  title,
+  cta,
+  tone,
+}: (typeof CARDS)[number]) {
+  const t = TONES[tone]
+
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: CARD_W,
+        height: CARD_H,
+        borderRadius: 16,
+        overflow: 'hidden',
+        background: t.bg,
+        boxShadow: '0 12px 28px rgba(20,17,26,0.22)',
+        fontFamily: "'Geist', -apple-system, sans-serif",
+      }}
+    >
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          width: 140,
+          height: 140,
+          borderRadius: '50%',
+          background: t.blobA,
+          filter: 'blur(2px)',
+          top: -36,
+          right: -28,
+        }}
+      />
+      <div
+        aria-hidden
+        style={{
+          position: 'absolute',
+          width: 110,
+          height: 110,
+          borderRadius: '50%',
+          background: t.blobB,
+          bottom: -40,
+          left: -20,
+        }}
+      />
+
+      <div
+        style={{
+          position: 'relative',
+          zIndex: 1,
+          height: '100%',
+          padding: '18px 20px 16px',
+          display: 'flex',
+          flexDirection: 'column',
+          boxSizing: 'border-box',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            gap: 8,
+            color: t.ink,
+            opacity: 0.55,
+          }}
+        >
+          <span
+            style={{
+              fontSize: 11,
+              fontWeight: 600,
+              letterSpacing: '0.08em',
+              textTransform: 'uppercase',
+            }}
+          >
+            {eyebrow}
+          </span>
+          <span
+            aria-hidden
+            style={{
+              width: 28,
+              height: 1,
+              background: 'currentColor',
+              opacity: 0.7,
+            }}
+          />
+        </div>
+
+        <div
+          style={{
+            marginTop: 12,
+            fontSize: 22,
+            fontWeight: 600,
+            letterSpacing: '-0.03em',
+            lineHeight: 1.2,
+            color: t.ink,
+            maxWidth: 246,
+          }}
+        >
+          {title}
+        </div>
+
+        <div style={{ marginTop: 'auto' }}>
+          <span
+            style={{
+              display: 'inline-flex',
+              alignItems: 'center',
+              height: 34,
+              padding: '0 14px',
+              borderRadius: 999,
+              background: '#17151C',
+              color: '#fff',
+              fontSize: 13,
+              fontWeight: 600,
+              letterSpacing: '-0.01em',
+            }}
+          >
+            {cta}
+          </span>
+        </div>
       </div>
     </div>
   )
