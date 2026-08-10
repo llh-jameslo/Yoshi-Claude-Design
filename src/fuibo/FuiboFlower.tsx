@@ -12,8 +12,19 @@ import { useCompactViewport } from '../hooks/useCompactViewport'
 import { isTextField } from '../lib/fakeKeyboardInput'
 import { TopicDrawer } from './TopicDrawer'
 import { SwitchYoshi } from './SwitchYoshi'
+import GrassGlobe, {
+  type GrassGlobeFlower,
+  type GrassGlobeHandle,
+} from './GrassGlobe'
 import { getYoshi } from './yoshis'
 import { toSwitchYoshi, type OwnedYoshi } from './ownedYoshis'
+import {
+  emptyMemory,
+  formatMemoryDay,
+  type Memory,
+} from './memories'
+import { MemorySheet, SHEET_MS } from './MemorySheet'
+
 type LinkPreview = {
   url: string
   domain: string
@@ -72,6 +83,21 @@ const TOPIC_PAYLOADS: TopicPayload[] = [
     },
   },
 ]
+
+const GARDEN_HINT = 'drag to spin · tap a flower'
+
+/** Rests fully zoomed out (whole globe in frame); zoom in only, to a floor. */
+const GARDEN_VIEW = { zoom: 9.5, zoomMin: 6, zoomMax: 9.5 }
+
+function toFlower(memory: Memory): GrassGlobeFlower {
+  return {
+    id: memory.id,
+    name: memory.title.trim() || 'untitled',
+    ts: formatMemoryDay(memory.at),
+    slot: memory.slot,
+    species: memory.species,
+  }
+}
 
 const HOME_TOPIC = "Let's chattt"
 const HOME_TIP = 'Wanna see the baby version of your rabbit?'
@@ -395,6 +421,24 @@ function SwitchYoshiIcon({ color = '#17151C' }: { color?: string }) {
   )
 }
 
+/** Four-leaf clover — the doorway to the memory garden. */
+function CloverIcon({ color = '#4E8B3C' }: { color?: string }) {
+  return (
+    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+      <circle cx="9.2" cy="9.2" r="3.3" fill={color} />
+      <circle cx="14.8" cy="9.2" r="3.3" fill={color} />
+      <circle cx="9.2" cy="14.8" r="3.3" fill={color} />
+      <circle cx="14.8" cy="14.8" r="3.3" fill={color} />
+      <path
+        d="M12.4 15.4c.6 1.8 1.1 3.4 1.1 5"
+        stroke={color}
+        strokeWidth="1.6"
+        strokeLinecap="round"
+      />
+    </svg>
+  )
+}
+
 function Chevron({ open }: { open: boolean }) {
   return (
     <div
@@ -448,6 +492,9 @@ type FuiboFlowerProps = {
   onRestartOnboarding?: () => void
   /** Create another Yoshi from Switch (short onboarding path) */
   onAddYoshi?: () => void
+  memories?: Memory[]
+  onSaveMemory?: (memory: Memory) => void
+  onDeleteMemory?: (id: string) => void
 }
 
 export function FuiboFlower({
@@ -458,6 +505,9 @@ export function FuiboFlower({
   onSelectYoshi,
   onRestartOnboarding,
   onAddYoshi,
+  memories = [],
+  onSaveMemory,
+  onDeleteMemory,
 }: FuiboFlowerProps) {
   const [screen, setScreen] = useState<'home' | 'chat' | 'game' | 'switch'>('home')
   const activeOwned =
@@ -507,6 +557,60 @@ export function FuiboFlower({
   const [swipeDragging, setSwipeDragging] = useState(false)
   const [shellW, setShellW] = useState(390)
   const exitTimer = useRef(0)
+  /** Home pager: 0 = home, 1 = garden globe (swipe left to reach it) */
+  const [homePage, setHomePage] = useState<0 | 1>(0)
+  const [pageDrag, setPageDrag] = useState(0)
+  const [pageDragging, setPageDragging] = useState(false)
+  const [globeMounted, setGlobeMounted] = useState(false)
+  const globeHandle = useRef<GrassGlobeHandle | null>(null)
+  const [sheetOpen, setSheetOpen] = useState(false)
+  const [sheetMode, setSheetMode] = useState<'compose' | 'view'>('compose')
+  const [sheetMemory, setSheetMemory] = useState<Memory | null>(null)
+  const plantedId = useRef<string | null>(null)
+
+  const flowers = useMemo(() => memories.map(toFlower), [memories])
+
+  const composeMemory = () => {
+    setSheetMemory(emptyMemory(memories, activeYoshiId ? [activeYoshiId] : []))
+    setSheetMode('compose')
+    setSheetOpen(true)
+  }
+
+  const viewMemory = (id: string) => {
+    const found = memories.find((m) => m.id === id)
+    if (!found) return
+    setSheetMemory(found)
+    setSheetMode('view')
+    setSheetOpen(true)
+  }
+
+  const saveMemory = (memory: Memory) => {
+    onSaveMemory?.(memory)
+    if (sheetMode === 'compose') plantedId.current = memory.id
+    setSheetOpen(false)
+  }
+
+  // Turn the globe to the fresh bloom once the sheet is out of the way
+  useEffect(() => {
+    if (sheetOpen || !plantedId.current) return
+    const id = plantedId.current
+    plantedId.current = null
+    const t = window.setTimeout(() => globeHandle.current?.focusFlower(id), SHEET_MS)
+    return () => window.clearTimeout(t)
+  }, [sheetOpen])
+  const pageSwipe = useRef<{
+    pointerId: number
+    startX: number
+    startY: number
+    startT: number
+    startPage: 0 | 1
+    axis: 'none' | 'h'
+    dragging: boolean
+  } | null>(null)
+  const releasePageSwipe = useRef<(() => void) | null>(null)
+  const PAGE_EDGE = 32
+  const PAGE_MS = 340
+  const PAGE_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
   // Default assumes two title lines; one-liners pull the image up once measured
   const [heroTop, setHeroTop] = useState(TITLE_TOP + 48 * 1.2 * 2 + TITLE_TO_HERO_GAP)
   const titleTop = compact
@@ -779,6 +883,107 @@ export function FuiboFlower({
     return () => ro.disconnect()
   }, [screen])
 
+  const onPageSwipeDown = (e: ReactPointerEvent<HTMLDivElement>) => {
+    if (screen !== 'home' || open) return
+    const t = e.target as Element | null
+    if (
+      t?.closest?.(
+        'input, textarea, button, a, [role="button"], [data-no-page-swipe]',
+      )
+    ) {
+      return
+    }
+
+    const shell = shellRef.current
+    if (!shell) return
+
+    // On the globe the canvas owns the middle, so only the edges page back
+    if (homePage === 1) {
+      const localX = e.clientX - shell.getBoundingClientRect().left
+      const fromEdge =
+        localX <= PAGE_EDGE || localX >= shell.clientWidth - PAGE_EDGE
+      if (!fromEdge) return
+    }
+
+    const pointerId = e.pointerId
+    pageSwipe.current = {
+      pointerId,
+      startX: e.clientX,
+      startY: e.clientY,
+      startT: performance.now(),
+      startPage: homePage,
+      axis: 'none',
+      dragging: false,
+    }
+
+    // Window listeners so the drag survives crossing child elements
+    const onMove = (ev: PointerEvent) => {
+      const s = pageSwipe.current
+      if (!s || ev.pointerId !== s.pointerId) return
+
+      const dx = ev.clientX - s.startX
+      const dy = ev.clientY - s.startY
+
+      if (s.axis === 'none') {
+        if (Math.hypot(dx, dy) < 8) return
+        if (Math.abs(dy) > Math.abs(dx)) {
+          pageSwipe.current = null
+          releasePageSwipe.current?.()
+          return
+        }
+        // Home needs a left swipe; the globe needs a right swipe back
+        if (s.startPage === 0 && dx > 0) return
+        if (s.startPage === 1 && dx < 0) return
+
+        s.axis = 'h'
+        s.dragging = true
+        setPageDragging(true)
+        setGlobeMounted(true)
+      }
+
+      ev.preventDefault()
+      const w = shellRef.current?.clientWidth || shellW
+      if (s.startPage === 0) setPageDrag(Math.max(-w, Math.min(0, dx)))
+      else setPageDrag(Math.max(0, Math.min(w, dx)))
+    }
+
+    const onUp = (ev: PointerEvent) => {
+      if (ev.pointerId !== pointerId) return
+      const s = pageSwipe.current
+      pageSwipe.current = null
+      releasePageSwipe.current?.()
+
+      setPageDragging(false)
+      setPageDrag(0)
+      if (!s?.dragging) return
+
+      const w = shellRef.current?.clientWidth || shellW
+      const dx = ev.clientX - s.startX
+      const elapsed = Math.max(1, performance.now() - s.startT)
+      const vx = Math.abs(dx) / elapsed
+      const shouldFlip = Math.abs(dx) / w > 0.22 || vx > 0.55
+
+      if (!shouldFlip) return
+      if (s.startPage === 0 && dx < 0) setHomePage(1)
+      if (s.startPage === 1 && dx > 0) setHomePage(0)
+    }
+
+    releasePageSwipe.current?.()
+    window.addEventListener('pointermove', onMove, { passive: false })
+    window.addEventListener('pointerup', onUp)
+    window.addEventListener('pointercancel', onUp)
+    releasePageSwipe.current = () => {
+      window.removeEventListener('pointermove', onMove)
+      window.removeEventListener('pointerup', onUp)
+      window.removeEventListener('pointercancel', onUp)
+      releasePageSwipe.current = null
+    }
+  }
+
+  useEffect(() => {
+    return () => releasePageSwipe.current?.()
+  }, [])
+
   const beginBgEdit = () => {
     setBgEditing(true)
     setBgHint(true)
@@ -924,25 +1129,23 @@ export function FuiboFlower({
         <div
           onClick={() => {
             setOpen(false)
-            setKb(false)
-            setAttach(false)
-            setScreen('game')
+            setGlobeMounted(true)
+            setHomePage(1)
           }}
           style={{
             width: 46,
             height: 46,
             borderRadius: '50%',
-            background: '#FBF3DC',
+            background: '#E6F0DA',
             display: 'flex',
             alignItems: 'center',
             justifyContent: 'center',
-            fontSize: 22,
             boxShadow: '0 2px 8px rgba(26,24,20,.08)',
             cursor: 'pointer',
           }}
-          title="Mowing with Yoshi"
+          title="Memory garden"
         >
-          🚜
+          <CloverIcon />
         </div>
       </div>
 
@@ -1842,9 +2045,16 @@ export function FuiboFlower({
 
   return (
     <IOSDevice
-      // In chat: follow kb state when open; otherwise let focus auto-open the fake keyboard.
+      // In chat: follow kb state when open; otherwise let focus auto-open the
+      // fake keyboard, which the journal sheet relies on.
       keyboard={
-        screen === 'chat' ? (kbVisible ? true : undefined) : false
+        screen === 'chat'
+          ? kbVisible
+            ? true
+            : undefined
+          : sheetOpen
+            ? undefined
+            : false
       }
     >
       {screen === 'game' ? (
@@ -1862,6 +2072,7 @@ export function FuiboFlower({
           }}
         >
           <div
+            onPointerDown={onPageSwipeDown}
             style={{
               position: 'absolute',
               inset: 0,
@@ -1877,9 +2088,149 @@ export function FuiboFlower({
                 ? 'none'
                 : `transform ${BACK_EXIT_MS}ms ${BACK_EASE}, opacity ${BACK_EXIT_MS}ms ${BACK_EASE}`,
               willChange: screen === 'chat' ? 'transform, opacity' : undefined,
+              overflow: 'hidden',
+              // Only lock while paging; the topic rail needs native touch scroll
+              touchAction: pageDragging ? 'none' : undefined,
             }}
           >
-            {home}
+            <div
+              style={{
+                display: 'flex',
+                width: shellW * 2,
+                height: '100%',
+                transform: `translate3d(${-homePage * shellW + pageDrag}px, 0, 0)`,
+                transition: pageDragging
+                  ? 'none'
+                  : `transform ${PAGE_MS}ms ${PAGE_EASE}`,
+                willChange: 'transform',
+              }}
+            >
+              <div style={{ width: shellW, height: '100%', flexShrink: 0 }}>
+                {home}
+              </div>
+              <div
+                style={{
+                  width: shellW,
+                  height: '100%',
+                  flexShrink: 0,
+                  position: 'relative',
+                  background: '#E9E6F8',
+                }}
+              >
+                {globeMounted && (
+                  <GrassGlobe
+                    flowers={flowers}
+                    hint={GARDEN_HINT}
+                    options={GARDEN_VIEW}
+                    handleRef={globeHandle}
+                    onFlowerTap={(flower) => viewMemory(flower.id)}
+                  />
+                )}
+
+                <div
+                  style={{
+                    position: 'absolute',
+                    top: 'var(--nav-top, 64px)',
+                    left: 0,
+                    right: 0,
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'space-between',
+                    padding: '0 24px',
+                    zIndex: 8,
+                  }}
+                >
+                  <button
+                    type="button"
+                    onClick={() => setHomePage(0)}
+                    aria-label="Back"
+                    title="Back"
+                    style={{
+                      width: 44,
+                      height: 44,
+                      border: 'none',
+                      background: 'transparent',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      cursor: 'pointer',
+                      padding: 0,
+                    }}
+                  >
+                    <BackArrow />
+                  </button>
+                  <div
+                    onClick={() => {
+                      setOpen(false)
+                      setKb(false)
+                      setAttach(false)
+                      setScreen('game')
+                    }}
+                    style={{
+                      width: 46,
+                      height: 46,
+                      borderRadius: '50%',
+                      background: '#FBF3DC',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      fontSize: 22,
+                      boxShadow: '0 2px 8px rgba(26,24,20,.08)',
+                      cursor: 'pointer',
+                    }}
+                    title="Mowing with Yoshi"
+                  >
+                    🚜
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={composeMemory}
+                  style={{
+                    position: 'absolute',
+                    left: 24,
+                    right: 24,
+                    bottom: homeBottom,
+                    height: 56,
+                    borderRadius: 28,
+                    border: 'none',
+                    background: '#FFFFFF',
+                    color: '#17151C',
+                    fontSize: 17,
+                    fontWeight: 500,
+                    letterSpacing: '-.01em',
+                    boxShadow: '0 6px 20px rgba(26,24,20,.14)',
+                    cursor: 'pointer',
+                    zIndex: 8,
+                  }}
+                >
+                  Plant a memory
+                </button>
+
+                {/* Edge strips: the canvas captures pointers, these page back */}
+                <div
+                  style={{
+                    position: 'absolute',
+                    left: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: PAGE_EDGE,
+                    zIndex: 6,
+                  }}
+                />
+                <div
+                  style={{
+                    position: 'absolute',
+                    right: 0,
+                    top: 0,
+                    bottom: 0,
+                    width: PAGE_EDGE,
+                    zIndex: 6,
+                  }}
+                />
+              </div>
+            </div>
           </div>
 
           {screen === 'chat' && (
@@ -1907,6 +2258,19 @@ export function FuiboFlower({
               {chat}
             </div>
           )}
+
+          <MemorySheet
+            open={sheetOpen}
+            memory={sheetMemory}
+            mode={sheetMode}
+            yoshis={yoshis}
+            onClose={() => setSheetOpen(false)}
+            onSave={saveMemory}
+            onDelete={(id) => {
+              onDeleteMemory?.(id)
+              setSheetOpen(false)
+            }}
+          />
         </div>
       )}
     </IOSDevice>

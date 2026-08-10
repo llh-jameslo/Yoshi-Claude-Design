@@ -6,10 +6,12 @@ import {
   ownedFromResult,
   type UserProfile,
 } from './fuibo/ownedYoshis'
+import { firstEncounterMemory, type Memory } from './fuibo/memories'
 import { useCompactViewport } from './hooks/useCompactViewport'
 
 export default function App() {
   const [profile, setProfile] = useState<UserProfile | null>(null)
+  const [memories, setMemories] = useState<Memory[]>([])
   const [addingYoshi, setAddingYoshi] = useState(false)
   const compact = useCompactViewport()
 
@@ -23,11 +25,17 @@ export default function App() {
   const finishOnboarding = (next: OnboardingResult) => {
     if (addingYoshi && profile) {
       const owned = ownedFromResult(next)
+      const userName = profile.userName || next.userName
       setProfile({
-        userName: profile.userName || next.userName,
+        userName,
         yoshis: [...profile.yoshis, owned],
         activeId: owned.id,
       })
+      // Every Yoshi plants a flower for the day you met
+      setMemories((prev) => [
+        ...prev,
+        firstEncounterMemory(owned, userName, prev),
+      ])
       setAddingYoshi(false)
       return
     }
@@ -38,6 +46,7 @@ export default function App() {
       yoshis: [owned],
       activeId: owned.id,
     })
+    setMemories([firstEncounterMemory(owned, next.userName)])
     setAddingYoshi(false)
   }
 
@@ -65,8 +74,20 @@ export default function App() {
           onSelectYoshi={(id) =>
             setProfile((prev) => (prev ? { ...prev, activeId: id } : prev))
           }
+          memories={memories}
+          onSaveMemory={(memory) =>
+            setMemories((prev) =>
+              prev.some((m) => m.id === memory.id)
+                ? prev.map((m) => (m.id === memory.id ? memory : m))
+                : [...prev, memory],
+            )
+          }
+          onDeleteMemory={(id) =>
+            setMemories((prev) => prev.filter((m) => m.id !== id))
+          }
           onRestartOnboarding={() => {
             setProfile(null)
+            setMemories([])
             setAddingYoshi(false)
           }}
           onAddYoshi={
