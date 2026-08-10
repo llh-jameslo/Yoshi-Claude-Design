@@ -424,7 +424,7 @@ function SwitchYoshiIcon({ color = '#17151C' }: { color?: string }) {
 /** Four-leaf clover — the doorway to the memory garden. */
 function CloverIcon({ color = '#4E8B3C' }: { color?: string }) {
   return (
-    <svg width="24" height="24" viewBox="0 0 24 24" fill="none" aria-hidden>
+    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden>
       <circle cx="9.2" cy="9.2" r="3.3" fill={color} />
       <circle cx="14.8" cy="9.2" r="3.3" fill={color} />
       <circle cx="9.2" cy="14.8" r="3.3" fill={color} />
@@ -1133,14 +1133,12 @@ export function FuiboFlower({
             setHomePage(1)
           }}
           style={{
-            width: 46,
-            height: 46,
-            borderRadius: '50%',
-            background: '#E6F0DA',
+            // Same right column as Switch Yoshi (44px at padding 24)
+            width: 44,
+            height: 44,
             display: 'flex',
             alignItems: 'center',
-            justifyContent: 'center',
-            boxShadow: '0 2px 8px rgba(26,24,20,.08)',
+            justifyContent: 'flex-end',
             cursor: 'pointer',
           }}
           title="Memory garden"
