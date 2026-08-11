@@ -2448,6 +2448,7 @@ export function FuiboFlower({
             memory={sheetMemory}
             mode={sheetMode}
             yoshis={yoshis}
+            userName={knownUserName}
             onHide={hideSheet}
             onDiscard={discardSheet}
             onSave={saveMemory}

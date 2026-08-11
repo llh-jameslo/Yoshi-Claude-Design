@@ -12,6 +12,7 @@ import { useKeyboardInset } from '../hooks/useKeyboardInset'
 import {
   formatMemoryStamp,
   newBlockId,
+  yoshiHelpDraft,
   type Memory,
   type MemoryBlock,
   type MemoryBlockKind,
@@ -141,6 +142,7 @@ type Props = {
   memory: Memory | null
   mode: 'compose' | 'view'
   yoshis: OwnedYoshi[]
+  userName?: string
   /** Slide away but keep the draft so Plant memory can reopen it. */
   onHide: (draft: Memory) => void
   /** Close (✕) — wipe the compose draft and start fresh next time. */
@@ -154,6 +156,7 @@ export function MemorySheet({
   memory,
   mode,
   yoshis,
+  userName = '',
   onHide,
   onDiscard,
   onSave,
@@ -163,6 +166,9 @@ export function MemorySheet({
   const [draft, setDraft] = useState<Memory | null>(memory)
   const [drag, setDrag] = useState(0)
   const [dragging, setDragging] = useState(false)
+  const [helpOfferVisible, setHelpOfferVisible] = useState(false)
+  const [helpOfferExpanded, setHelpOfferExpanded] = useState(false)
+  const [activityGen, setActivityGen] = useState(0)
   /** Visual collage order — frozen while a card is being edited. */
   const [stackOrder, setStackOrder] = useState<MemoryBlockKind[]>(() =>
     orderByContent(memory?.blocks ?? []),
@@ -256,9 +262,47 @@ export function MemorySheet({
     }
   }
 
+  const helperYoshi =
+    (draft &&
+      (yoshis.find((y) => draft.withYoshiIds.includes(y.id)) ?? yoshis[0])) ||
+    undefined
+
+  const writingBlank = Boolean(
+    draft &&
+      mode === 'compose' &&
+      draft.title.trim().length === 0 &&
+      draft.body.trim().length === 0,
+  )
+
+  const noteActivity = () => {
+    setActivityGen((n) => n + 1)
+    setHelpOfferVisible(false)
+    setHelpOfferExpanded(false)
+  }
+
+  // After 3s idle on a blank compose sheet: icon pops in, then expands the label
+  useEffect(() => {
+    if (!open || !writingBlank || !helperYoshi) {
+      setHelpOfferVisible(false)
+      setHelpOfferExpanded(false)
+      return
+    }
+    setHelpOfferVisible(false)
+    setHelpOfferExpanded(false)
+    const showIcon = window.setTimeout(() => setHelpOfferVisible(true), 2400)
+    const expand = window.setTimeout(() => setHelpOfferExpanded(true), 2820)
+    return () => {
+      window.clearTimeout(showIcon)
+      window.clearTimeout(expand)
+    }
+  }, [open, writingBlank, helperYoshi, activityGen])
+
   if (!render || !draft) return null
 
-  const patch = (next: Partial<Memory>) => setDraft({ ...draft, ...next })
+  const patch = (next: Partial<Memory>) => {
+    if ('title' in next || 'body' in next) noteActivity()
+    setDraft({ ...draft, ...next })
+  }
 
   const commitBlocks = (nextBlocks: MemoryBlock[]) => {
     setDraft({ ...draft, blocks: nextBlocks })
@@ -284,8 +328,26 @@ export function MemorySheet({
 
   const beginEdit = (kind: MemoryBlockKind) => {
     if (draft.blocks.some((b) => b.kind === kind)) return
+    noteActivity()
     setEditingKind(kind)
     setDraft({ ...draft, blocks: [...draft.blocks, emptyBlock(kind)] })
+  }
+
+  const askYoshiHelp = () => {
+    if (!helperYoshi) return
+    const copy = yoshiHelpDraft(helperYoshi, userName)
+    setDraft({
+      ...draft,
+      title: copy.title,
+      body: copy.body,
+      author: { kind: 'yoshi', yoshiId: helperYoshi.id },
+    })
+    setHelpOfferVisible(false)
+    setHelpOfferExpanded(false)
+  }
+
+  const clearYoshiCredit = () => {
+    setDraft({ ...draft, author: { kind: 'user' } })
   }
 
   const authorInfo = draft.author
@@ -541,43 +603,119 @@ export function MemorySheet({
             <div
               style={{
                 display: 'flex',
-                alignItems: 'center',
-                gap: 12,
-                flexWrap: 'wrap',
+                flexDirection: 'column',
+                gap: 10,
               }}
             >
-              <label style={stampChip}>
-                {formatMemoryStamp(draft.at)}
-                <input
-                  type="datetime-local"
-                  value={toLocalInput(draft.at)}
-                  onChange={(e) => {
-                    const next = new Date(e.target.value).getTime()
-                    if (!Number.isNaN(next)) patch({ at: next })
-                  }}
-                  style={{
-                    position: 'absolute',
-                    inset: 0,
-                    opacity: 0,
-                    cursor: 'pointer',
-                    fontFamily: 'inherit',
-                  }}
-                />
-              </label>
-              {author ? (
-                <span style={{ ...stampChip, gap: 7, paddingLeft: 5 }}>
-                  <img
-                    src={author.image}
-                    alt=""
+              <div
+                style={{
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: 12,
+                  flexWrap: 'wrap',
+                  minHeight: 34,
+                }}
+              >
+                <label style={stampChip}>
+                  {formatMemoryStamp(draft.at)}
+                  <input
+                    type="datetime-local"
+                    value={toLocalInput(draft.at)}
+                    onChange={(e) => {
+                      const next = new Date(e.target.value).getTime()
+                      if (!Number.isNaN(next)) patch({ at: next })
+                    }}
                     style={{
-                      width: 22,
-                      height: 22,
-                      borderRadius: '50%',
-                      objectFit: 'cover',
+                      position: 'absolute',
+                      inset: 0,
+                      opacity: 0,
+                      cursor: 'pointer',
+                      fontFamily: 'inherit',
                     }}
                   />
-                  {author.name} wrote this
-                </span>
+                </label>
+                {helpOfferVisible && helperYoshi && !author ? (
+                  <button
+                    type="button"
+                    className={`ms-draft-offer${helpOfferExpanded ? ' is-expanded' : ''}`}
+                    onClick={askYoshiHelp}
+                    aria-label="Want me to draft?"
+                  >
+                    <img
+                      src={helperYoshi.image}
+                      alt=""
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                        flex: 'none',
+                      }}
+                    />
+                    <span className="ms-draft-offer-label">
+                      Want me to draft?
+                    </span>
+                  </button>
+                ) : null}
+              </div>
+              {author ? (
+                <div
+                  style={{
+                    display: 'flex',
+                    alignItems: 'center',
+                    minHeight: 34,
+                  }}
+                >
+                  <span
+                    style={{
+                      ...stampChip,
+                      gap: 7,
+                      paddingTop: 5,
+                      paddingBottom: 5,
+                      paddingLeft: 5,
+                      paddingRight: mode === 'compose' ? 5 : 12,
+                    }}
+                  >
+                    <img
+                      src={author.image}
+                      alt=""
+                      style={{
+                        width: 22,
+                        height: 22,
+                        borderRadius: '50%',
+                        objectFit: 'cover',
+                      }}
+                    />
+                    {author.name} wrote this
+                    {mode === 'compose' ? (
+                      <button
+                        type="button"
+                        onClick={clearYoshiCredit}
+                        aria-label="Remove Yoshi credit"
+                        title="Keep the words, remove the credit"
+                        style={{
+                          width: 18,
+                          height: 18,
+                          marginLeft: 2,
+                          border: 'none',
+                          borderRadius: '50%',
+                          background: 'rgba(23,21,28,0.08)',
+                          color: '#7B7786',
+                          fontSize: 11,
+                          lineHeight: 1,
+                          cursor: 'pointer',
+                          padding: 0,
+                          fontFamily: 'inherit',
+                          display: 'flex',
+                          alignItems: 'center',
+                          justifyContent: 'center',
+                        }}
+                      >
+                        ✕
+                      </button>
+                    ) : null}
+                  </span>
+                </div>
               ) : null}
             </div>
 

@@ -167,3 +167,31 @@ export function firstEncounterMemory(
     blocks: [],
   }
 }
+
+/** Soft starter draft when the user asks Yoshi to help on a blank sheet. */
+export function yoshiHelpDraft(
+  yoshi: OwnedYoshi,
+  userName: string,
+): { title: string; body: string } {
+  const you = userName.trim() || 'you'
+  const name = yoshi.name
+
+  if (yoshi.relationshipId === 'romance') {
+    return {
+      title: 'A quiet little spark',
+      body: `I started this for us, ${you}. Nothing dramatic — just a feeling I didn't want to lose. You can keep my words, change them, or tell me what actually happened. I'll stay right here either way.`,
+    }
+  }
+
+  if (yoshi.relationshipId === 'parent') {
+    return {
+      title: 'Something worth keeping',
+      body: `Hey ${you} — I opened this page so you wouldn't have to start from nothing. Ordinary days disappear if nobody writes them down. Add what you remember, or leave this as a placeholder and we'll fill it in together later. Love, ${name}.`,
+    }
+  }
+
+  return {
+    title: 'Today felt worth keeping',
+    body: `Hey — I started this one for ${you}. Not because anything huge happened, but because the small ones slip away first. Tell me what you want to remember, tweak my words, or grow from here. — ${name}`,
+  }
+}

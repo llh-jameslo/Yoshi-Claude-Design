@@ -374,6 +374,62 @@ html[data-kb-lock='on'] body {
   }
 }
 
+@keyframes ms-draft-offer-in {
+  from {
+    opacity: 0;
+    transform: scale(0.72);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+/* Yoshi draft offer — icon first, then expands to show label */
+.ms-draft-offer {
+  display: inline-flex;
+  align-items: center;
+  height: 34px;
+  max-width: 34px;
+  border-radius: 999px;
+  border: 1.5px solid rgba(23, 21, 28, 0.1);
+  background: rgba(255, 255, 255, 0.85);
+  box-shadow: 0 4px 14px rgba(20, 17, 26, 0.06);
+  padding: 0 0 0 5px;
+  gap: 0;
+  overflow: hidden;
+  cursor: pointer;
+  font-family: inherit;
+  color: #5a5666;
+  animation: ms-draft-offer-in 320ms cubic-bezier(0.32, 0.72, 0, 1);
+  transition:
+    max-width 420ms cubic-bezier(0.32, 0.72, 0, 1),
+    gap 420ms cubic-bezier(0.32, 0.72, 0, 1),
+    padding 420ms cubic-bezier(0.32, 0.72, 0, 1);
+}
+
+.ms-draft-offer.is-expanded {
+  max-width: 200px;
+  gap: 8px;
+  padding: 0 12px 0 5px;
+}
+
+.ms-draft-offer-label {
+  opacity: 0;
+  white-space: nowrap;
+  font-size: 12.5px;
+  font-weight: 500;
+  transform: translateX(-4px);
+  transition:
+    opacity 280ms ease 90ms,
+    transform 280ms cubic-bezier(0.32, 0.72, 0, 1) 90ms;
+}
+
+.ms-draft-offer.is-expanded .ms-draft-offer-label {
+  opacity: 1;
+  transform: translateX(0);
+}
+
 /* Grass globe — canvas cursor, flower tooltip, caption */
 .gg-canvas {
   display: block;
