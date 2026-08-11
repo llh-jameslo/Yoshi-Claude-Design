@@ -375,25 +375,26 @@ export function MemorySheet({
     const raised = editingKind === kind || blockHasContent(block)
 
     if (kind === 'photos') {
+      const photoBlock = block?.kind === 'photos' ? block : undefined
       cards.push({
         key: 'photos',
         portrait: true,
         raised,
-        node: block?.urls[0] ? (
+        node: photoBlock?.urls[0] ? (
           <PhotoBleedCard
-            url={block.urls[0]}
-            onRemove={() => removeBlock(block.id)}
+            url={photoBlock.urls[0]}
+            onRemove={() => removeBlock(photoBlock.id)}
           />
         ) : (
           <PhotoAddCard
             onPick={(url) => {
-              if (block) {
+              if (photoBlock) {
                 const next = {
-                  ...block,
+                  ...photoBlock,
                   urls: [url],
                 } as Extract<MemoryBlock, { kind: 'photos' }>
                 const nextBlocks = draft.blocks.map((b) =>
-                  b.id === block.id ? next : b,
+                  b.id === photoBlock.id ? next : b,
                 )
                 if (editingKind) patchBlocksQuiet(nextBlocks)
                 else commitBlocks(nextBlocks)
