@@ -18,6 +18,21 @@ const SAMPLE_MS = 80
 const MAX_SECONDS = 60
 const IDLE_PEAKS = new Array(BARS).fill(0.12)
 
+/**
+ * Safari typically records mp4/aac and refuses to play blobs with an empty
+ * type; Chrome prefers webm. Pick the first supported mime for MediaRecorder.
+ */
+function pickRecorderMime(): string | undefined {
+  if (typeof MediaRecorder === 'undefined') return undefined
+  const candidates = [
+    'audio/mp4',
+    'audio/aac',
+    'audio/webm;codecs=opus',
+    'audio/webm',
+  ]
+  return candidates.find((t) => MediaRecorder.isTypeSupported(t))
+}
+
 /** Average the raw amplitude samples down to a fixed bar count. */
 function toPeaks(samples: number[]) {
   if (!samples.length) return new Array(BARS).fill(0.08)
@@ -72,8 +87,13 @@ export function VoiceNote({ clip, onChange, onCancel }: Props) {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
       streamRef.current = stream
 
-      const ctx = new AudioContext()
+      const Ctx =
+        window.AudioContext ||
+        (window as unknown as { webkitAudioContext: typeof AudioContext })
+          .webkitAudioContext
+      const ctx = new Ctx()
       audioCtxRef.current = ctx
+      if (ctx.state === 'suspended') await ctx.resume()
       const analyser = ctx.createAnalyser()
       analyser.fftSize = 1024
       ctx.createMediaStreamSource(stream).connect(analyser)
@@ -84,19 +104,33 @@ export function VoiceNote({ clip, onChange, onCancel }: Props) {
       setElapsed(0)
 
       const chunks: BlobPart[] = []
-      const recorder = new MediaRecorder(stream)
+      const mimeType = pickRecorderMime()
+      const recorder = mimeType
+        ? new MediaRecorder(stream, { mimeType })
+        : new MediaRecorder(stream)
       recorderRef.current = recorder
       recorder.ondataavailable = (e) => {
         if (e.data.size) chunks.push(e.data)
       }
       recorder.onstop = () => {
         const seconds = samplesRef.current.length * (SAMPLE_MS / 1000)
-        const url = URL.createObjectURL(new Blob(chunks))
+        // Bare Blob() has type "" — Safari <audio> often won't play that.
+        const first = chunks[0]
+        const fromChunk = first instanceof Blob ? first.type : ''
+        const type =
+          recorder.mimeType || mimeType || fromChunk || 'audio/mp4'
+        const blob = new Blob(chunks, { type })
+        if (!blob.size) {
+          teardown()
+          return
+        }
+        const url = URL.createObjectURL(blob)
         if (clip?.url) URL.revokeObjectURL(clip.url)
         onChange({ url, seconds, peaks: toPeaks(samplesRef.current) })
         teardown()
       }
-      recorder.start()
+      // Timeslice so Safari actually emits chunks before stop.
+      recorder.start(250)
       setRecording(true)
 
       tickRef.current = window.setInterval(() => {
@@ -137,8 +171,12 @@ export function VoiceNote({ clip, onChange, onCancel }: Props) {
   const togglePlay = () => {
     const el = audioRef.current
     if (!el) return
-    if (el.paused) void el.play()
-    else el.pause()
+    if (el.paused) {
+      void el.play().catch(() => {
+        // Safari can reject play() if the blob mime was wrong / empty.
+        setPlaying(false)
+      })
+    } else el.pause()
   }
 
   const seekTo = (fraction: number) => {
@@ -251,6 +289,8 @@ export function VoiceNote({ clip, onChange, onCancel }: Props) {
       <audio
         ref={audioRef}
         src={clip.url}
+        playsInline
+        preload="auto"
         onPlay={() => setPlaying(true)}
         onPause={() => setPlaying(false)}
         onEnded={() => {

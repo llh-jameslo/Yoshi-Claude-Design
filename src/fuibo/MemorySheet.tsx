@@ -727,7 +727,8 @@ export function MemorySheet({
                 "A little something from today…\nWhat made this moment feel worth keeping?"
               }
               style={{
-                fontSize: 14,
+                // 16px+ avoids iOS Safari zoom-on-focus
+                fontSize: 16,
                 lineHeight: 1.55,
                 color: '#2C241C',
                 minHeight: draft.body ? undefined : 44,
@@ -1170,7 +1171,8 @@ function FilledCard({
           placeholder="Anything worth remembering…"
           style={{
             flex: 1,
-            fontSize: 14,
+            // 16px+ avoids iOS Safari zoom-on-focus
+            fontSize: 16,
             lineHeight: 1.7,
             color: '#3B3520',
           }}
