@@ -38,6 +38,8 @@ export type GrassGlobeOptions = {
 type CreateOptions = Partial<GrassGlobeOptions> & {
   flowers: GrassGlobeFlower[]
   onFlowerTap: ((flower: GrassGlobeFlower) => void) | null
+  /** First pointer down on the globe (spin / tap). */
+  onInteract: (() => void) | null
   tipEl: HTMLElement | null
   tipHeadEl: HTMLElement | null
   tipTimeEl: HTMLElement | null
@@ -814,12 +816,20 @@ function createGrassGlobe(
     if (tipH) tipH.textContent = entry.data.name
     if (tipT) tipT.textContent = entry.data.ts
     if (tipEl) tipEl.classList.add('show')
-    if (opt.onFlowerTap) opt.onFlowerTap(entry.data)
   }
   function closeTip() {
     activeFlower = null
     if (tipEl) tipEl.classList.remove('show')
   }
+
+  // Tip first, memory second — tapping the bubble opens the journal
+  function onTipClick(e: Event) {
+    e.stopPropagation()
+    if (!activeFlower) return
+    const entry = entries.get(activeFlower)
+    if (entry && opt.onFlowerTap) opt.onFlowerTap(entry.data)
+  }
+  if (tipEl) tipEl.addEventListener('pointerup', onTipClick)
 
   // ================================================================= input
   const ray = new THREE.Raycaster()
@@ -887,6 +897,8 @@ function createGrassGlobe(
       entry.dir,
       new THREE.Vector3(0, 0, 1),
     )
+    // Show the tip as the globe turns to the new bloom
+    openTip(entry.pick)
   }
 
   function onDown(e: PointerEvent) {
@@ -903,6 +915,7 @@ function createGrassGlobe(
     }
     trackCursor(e)
     if (hintEl) hintEl.style.opacity = '0'
+    opt.onInteract?.()
   }
   function onMove(e: PointerEvent) {
     const dx = e.clientX - px,
@@ -1182,6 +1195,7 @@ function createGrassGlobe(
       el.removeEventListener('pointermove', onMove2)
       el.removeEventListener('pointerup', onUp2)
       el.removeEventListener('pointercancel', onUp2)
+      if (tipEl) tipEl.removeEventListener('pointerup', onTipClick)
       grassGeo.dispose()
       grassMat.dispose()
       coreGeo.dispose()
@@ -1205,6 +1219,7 @@ function createGrassGlobe(
 export type GrassGlobeProps = {
   flowers: GrassGlobeFlower[]
   onFlowerTap?: (flower: GrassGlobeFlower) => void
+  onInteract?: () => void
   options?: Partial<GrassGlobeOptions>
   hint?: string
   style?: CSSProperties
@@ -1214,6 +1229,7 @@ export type GrassGlobeProps = {
 export default function GrassGlobe({
   flowers,
   onFlowerTap,
+  onInteract,
   options,
   hint = 'drag to spin · tap a flower',
   style,
@@ -1228,6 +1244,8 @@ export default function GrassGlobe({
 
   const tapRef = useRef(onFlowerTap)
   tapRef.current = onFlowerTap
+  const interactRef = useRef(onInteract)
+  interactRef.current = onInteract
 
   const flowersRef = useRef(flowers)
   flowersRef.current = flowers
@@ -1262,6 +1280,7 @@ export default function GrassGlobe({
       ...optionsRef.current,
       flowers: flowersRef.current,
       onFlowerTap: (flower) => tapRef.current?.(flower),
+      onInteract: () => interactRef.current?.(),
       tipEl: tipRef.current,
       tipHeadEl: tipHeadRef.current,
       tipTimeEl: tipTimeRef.current,

@@ -84,8 +84,6 @@ const TOPIC_PAYLOADS: TopicPayload[] = [
   },
 ]
 
-const GARDEN_HINT = 'drag to spin · tap a flower'
-
 /** Rests fully zoomed out (whole globe in frame); zoom in only, to a floor. */
 const GARDEN_VIEW = { zoom: 9.5, zoomMin: 6, zoomMax: 9.5 }
 
@@ -101,6 +99,7 @@ function toFlower(memory: Memory): GrassGlobeFlower {
 
 const HOME_TOPIC = "Let's chattt"
 const HOME_TIP = 'Wanna see the baby version of your rabbit?'
+const GARDEN_INTRO_FADE_MS = 1100
 
 const HOME_TOPIC_PAYLOAD: TopicPayload = {
   text: 'Remember when you showed me your rabbit? This is how they’d look as a baby.',
@@ -421,19 +420,79 @@ function SwitchYoshiIcon({ color = '#17151C' }: { color?: string }) {
   )
 }
 
-/** Four-leaf clover — the doorway to the memory garden. */
-function CloverIcon({ color = '#4E8B3C' }: { color?: string }) {
+/** Flower — the doorway to the memory garden. */
+function FlowerIcon({
+  color = '#FFFFFF',
+  center = '#EFB01E',
+}: {
+  color?: string
+  center?: string
+}) {
   return (
-    <svg width="36" height="36" viewBox="0 0 24 24" fill="none" aria-hidden>
-      <circle cx="9.2" cy="9.2" r="3.3" fill={color} />
-      <circle cx="14.8" cy="9.2" r="3.3" fill={color} />
-      <circle cx="9.2" cy="14.8" r="3.3" fill={color} />
-      <circle cx="14.8" cy="14.8" r="3.3" fill={color} />
-      <path
-        d="M12.4 15.4c.6 1.8 1.1 3.4 1.1 5"
-        stroke={color}
-        strokeWidth="1.6"
-        strokeLinecap="round"
+    <svg
+      width="44"
+      height="44"
+      viewBox="0 0 24 24"
+      fill="none"
+      aria-hidden
+      style={{
+        filter:
+          'drop-shadow(0 1px 1px rgba(23,21,28,0.12)) drop-shadow(0 2.5px 5px rgba(23,21,28,0.11))',
+      }}
+    >
+      <circle
+        cx="12"
+        cy="8"
+        r="3.2"
+        fill={color}
+        stroke="#17151C"
+        strokeWidth="1.05"
+        strokeOpacity="0.15"
+      />
+      <circle
+        cx="16.2"
+        cy="11"
+        r="3.2"
+        fill={color}
+        stroke="#17151C"
+        strokeWidth="1.05"
+        strokeOpacity="0.15"
+      />
+      <circle
+        cx="14.6"
+        cy="15.8"
+        r="3.2"
+        fill={color}
+        stroke="#17151C"
+        strokeWidth="1.05"
+        strokeOpacity="0.15"
+      />
+      <circle
+        cx="9.4"
+        cy="15.8"
+        r="3.2"
+        fill={color}
+        stroke="#17151C"
+        strokeWidth="1.05"
+        strokeOpacity="0.15"
+      />
+      <circle
+        cx="7.8"
+        cy="11"
+        r="3.2"
+        fill={color}
+        stroke="#17151C"
+        strokeWidth="1.05"
+        strokeOpacity="0.15"
+      />
+      <circle
+        cx="12"
+        cy="12"
+        r="2.4"
+        fill={center}
+        stroke="#17151C"
+        strokeWidth="0.95"
+        strokeOpacity="0.12"
       />
     </svg>
   )
@@ -566,12 +625,22 @@ export function FuiboFlower({
   const [sheetOpen, setSheetOpen] = useState(false)
   const [sheetMode, setSheetMode] = useState<'compose' | 'view'>('compose')
   const [sheetMemory, setSheetMemory] = useState<Memory | null>(null)
+  /** Compose draft survives hide/drag-down; only ✕ or Plant clears it. */
+  const [composeDraft, setComposeDraft] = useState<Memory | null>(null)
   const plantedId = useRef<string | null>(null)
+  /** Fade-away garden header — mounted while fading out. */
+  const [gardenIntroShown, setGardenIntroShown] = useState(false)
+  const [gardenIntroVisible, setGardenIntroVisible] = useState(false)
+  const gardenIntroTimer = useRef(0)
 
   const flowers = useMemo(() => memories.map(toFlower), [memories])
 
   const composeMemory = () => {
-    setSheetMemory(emptyMemory(memories, activeYoshiId ? [activeYoshiId] : []))
+    const draft =
+      composeDraft ??
+      emptyMemory(memories, activeYoshiId ? [activeYoshiId] : [])
+    if (!composeDraft) setComposeDraft(draft)
+    setSheetMemory(draft)
     setSheetMode('compose')
     setSheetOpen(true)
   }
@@ -586,7 +655,20 @@ export function FuiboFlower({
 
   const saveMemory = (memory: Memory) => {
     onSaveMemory?.(memory)
-    if (sheetMode === 'compose') plantedId.current = memory.id
+    if (sheetMode === 'compose') {
+      plantedId.current = memory.id
+      setComposeDraft(null)
+    }
+    setSheetOpen(false)
+  }
+
+  const hideSheet = (draft: Memory) => {
+    if (sheetMode === 'compose') setComposeDraft(draft)
+    setSheetOpen(false)
+  }
+
+  const discardSheet = () => {
+    if (sheetMode === 'compose') setComposeDraft(null)
     setSheetOpen(false)
   }
 
@@ -598,6 +680,35 @@ export function FuiboFlower({
     const t = window.setTimeout(() => globeHandle.current?.focusFlower(id), SHEET_MS)
     return () => window.clearTimeout(t)
   }, [sheetOpen])
+
+  // Fade-away "Memory Garden" header whenever you land on the globe page
+  useEffect(() => {
+    window.clearTimeout(gardenIntroTimer.current)
+    if (homePage !== 1) {
+      setGardenIntroVisible(false)
+      gardenIntroTimer.current = window.setTimeout(
+        () => setGardenIntroShown(false),
+        GARDEN_INTRO_FADE_MS,
+      )
+      return () => window.clearTimeout(gardenIntroTimer.current)
+    }
+    setGardenIntroShown(true)
+    setGardenIntroVisible(false)
+    const show = window.requestAnimationFrame(() => {
+      window.requestAnimationFrame(() => setGardenIntroVisible(true))
+    })
+    const hide = window.setTimeout(() => setGardenIntroVisible(false), 4000)
+    const unmount = window.setTimeout(
+      () => setGardenIntroShown(false),
+      4000 + GARDEN_INTRO_FADE_MS,
+    )
+    gardenIntroTimer.current = unmount
+    return () => {
+      cancelAnimationFrame(show)
+      window.clearTimeout(hide)
+      window.clearTimeout(unmount)
+    }
+  }, [homePage])
   const pageSwipe = useRef<{
     pointerId: number
     startX: number
@@ -1143,7 +1254,7 @@ export function FuiboFlower({
           }}
           title="Memory garden"
         >
-          <CloverIcon />
+          <FlowerIcon />
         </div>
       </div>
 
@@ -1270,7 +1381,7 @@ export function FuiboFlower({
           borderRadius: '50%',
           boxSizing: 'border-box',
           background: '#C05A3C',
-          border: '1.5px solid #FFFFFF',
+          border: '1.5px solid #17151C',
           display: 'flex',
           alignItems: 'center',
           justifyContent: 'center',
@@ -2118,12 +2229,57 @@ export function FuiboFlower({
                 {globeMounted && (
                   <GrassGlobe
                     flowers={flowers}
-                    hint={GARDEN_HINT}
+                    hint=""
                     options={GARDEN_VIEW}
                     handleRef={globeHandle}
                     onFlowerTap={(flower) => viewMemory(flower.id)}
                   />
                 )}
+
+                {gardenIntroShown ? (
+                  <div
+                    aria-hidden={!gardenIntroVisible}
+                    style={{
+                      position: 'absolute',
+                      top: 'calc(var(--nav-top, 64px) + 56px)',
+                      left: 32,
+                      right: 32,
+                      zIndex: 7,
+                      textAlign: 'center',
+                      pointerEvents: 'none',
+                      opacity: gardenIntroVisible ? 1 : 0,
+                      transform: gardenIntroVisible
+                        ? 'translateY(0)'
+                        : 'translateY(-18px)',
+                      transition: `opacity ${GARDEN_INTRO_FADE_MS}ms ease, transform ${GARDEN_INTRO_FADE_MS}ms cubic-bezier(0.32, 0.72, 0, 1)`,
+                    }}
+                  >
+                    <div
+                      style={{
+                        fontSize: 28,
+                        fontWeight: 700,
+                        letterSpacing: '-0.02em',
+                        color: '#17151C',
+                        lineHeight: 1.15,
+                      }}
+                    >
+                      Memory Garden
+                    </div>
+                    <div
+                      style={{
+                        marginTop: 8,
+                        fontSize: 14,
+                        lineHeight: 1.45,
+                        color: '#6F6B7A',
+                        maxWidth: 280,
+                        marginLeft: 'auto',
+                        marginRight: 'auto',
+                      }}
+                    >
+                      Plant moments. Come back and find them growing.
+                    </div>
+                  </div>
+                ) : null}
 
                 <div
                   style={{
@@ -2187,23 +2343,53 @@ export function FuiboFlower({
                   onClick={composeMemory}
                   style={{
                     position: 'absolute',
-                    left: 24,
-                    right: 24,
-                    bottom: homeBottom,
-                    height: 56,
-                    borderRadius: 28,
-                    border: 'none',
-                    background: '#FFFFFF',
-                    color: '#17151C',
-                    fontSize: 17,
-                    fontWeight: 500,
-                    letterSpacing: '-.01em',
-                    boxShadow: '0 6px 20px rgba(26,24,20,.14)',
-                    cursor: 'pointer',
+                    left: '50%',
+                    transform: 'translateX(-50%)',
+                    bottom: compact
+                      ? `calc(${96 + homeLift}px + var(--safe-bottom, 0px))`
+                      : 110 + homeLift,
                     zIndex: 8,
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: 28,
+                    background: '#FFFFFF',
+                    borderRadius: 24,
+                    border: '1.5px solid #17151C',
+                    padding: '8px 12px 8px 18px',
+                    fontSize: 17,
+                    lineHeight: 1.25,
+                    fontFamily: 'inherit',
+                    fontWeight: 600,
+                    textAlign: 'left',
+                    color: '#17151C',
+                    boxShadow: '0 8px 22px rgba(26,24,20,.22)',
+                    cursor: 'pointer',
+                    whiteSpace: 'nowrap',
                   }}
                 >
-                  Plant a memory
+                  <span>Plant memory</span>
+                  <span
+                    aria-hidden
+                    style={{
+                      flex: 'none',
+                      width: 40,
+                      height: 40,
+                      borderRadius: '50%',
+                      background: '#17151C',
+                      display: 'flex',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                    }}
+                  >
+                    <svg width="24" height="24" viewBox="0 0 24 24" fill="none">
+                      <circle cx="12" cy="8" r="3.2" fill="#fff" />
+                      <circle cx="16.2" cy="11" r="3.2" fill="#fff" />
+                      <circle cx="14.6" cy="15.8" r="3.2" fill="#fff" />
+                      <circle cx="9.4" cy="15.8" r="3.2" fill="#fff" />
+                      <circle cx="7.8" cy="11" r="3.2" fill="#fff" />
+                      <circle cx="12" cy="12" r="2.4" fill="#F4C84A" />
+                    </svg>
+                  </span>
                 </button>
 
                 {/* Edge strips: the canvas captures pointers, these page back */}
@@ -2262,7 +2448,8 @@ export function FuiboFlower({
             memory={sheetMemory}
             mode={sheetMode}
             yoshis={yoshis}
-            onClose={() => setSheetOpen(false)}
+            onHide={hideSheet}
+            onDiscard={discardSheet}
             onSave={saveMemory}
             onDelete={(id) => {
               onDeleteMemory?.(id)

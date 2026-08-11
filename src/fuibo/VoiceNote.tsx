@@ -8,11 +8,15 @@ export type VoiceClip = {
 
 type Props = {
   clip: VoiceClip | null
-  onChange: (clip: VoiceClip) => void
+  onChange: (clip: VoiceClip | null) => void
+  /** Empty / abandoned session — return the card to idle. */
+  onCancel?: () => void
 }
 
 const BARS = 44
 const SAMPLE_MS = 80
+const MAX_SECONDS = 60
+const IDLE_PEAKS = new Array(BARS).fill(0.12)
 
 /** Average the raw amplitude samples down to a fixed bar count. */
 function toPeaks(samples: number[]) {
@@ -36,7 +40,7 @@ function formatClock(seconds: number) {
   return `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
 }
 
-export function VoiceNote({ clip, onChange }: Props) {
+export function VoiceNote({ clip, onChange, onCancel }: Props) {
   const [recording, setRecording] = useState(false)
   const [elapsed, setElapsed] = useState(0)
   const [live, setLive] = useState<number[]>([])
@@ -104,8 +108,18 @@ export function VoiceNote({ clip, onChange }: Props) {
         }
         const rms = Math.sqrt(sum / buf.length)
         samplesRef.current.push(rms)
-        setElapsed(samplesRef.current.length * (SAMPLE_MS / 1000))
+        const nextElapsed = samplesRef.current.length * (SAMPLE_MS / 1000)
+        setElapsed(nextElapsed)
         setLive(samplesRef.current.slice(-BARS))
+        if (nextElapsed >= MAX_SECONDS) {
+          window.clearInterval(tickRef.current)
+          setRecording(false)
+          if (recorderRef.current?.state === 'recording') {
+            recorderRef.current.stop()
+          } else {
+            teardown()
+          }
+        }
       }, SAMPLE_MS)
     } catch {
       setDenied(true)
@@ -130,7 +144,8 @@ export function VoiceNote({ clip, onChange }: Props) {
   const seekTo = (fraction: number) => {
     const el = audioRef.current
     if (!el || !clip) return
-    const target = fraction * (Number.isFinite(el.duration) ? el.duration : clip.seconds)
+    const target =
+      fraction * (Number.isFinite(el.duration) ? el.duration : clip.seconds)
     el.currentTime = Math.max(0, target)
     setProgress(fraction)
   }
@@ -142,66 +157,92 @@ export function VoiceNote({ clip, onChange }: Props) {
           The microphone is blocked. Allow it in your browser settings to record
           a voice note.
         </div>
-        <button type="button" onClick={start} style={pillStyle}>
-          Try again
-        </button>
-      </div>
-    )
-  }
-
-  if (recording) {
-    const bars = [...live, ...new Array(Math.max(0, BARS - live.length)).fill(0)]
-    return (
-      <div style={{ display: 'grid', gap: 12 }}>
-        <Wave peaks={bars} played={0} color="#E2574C" />
-        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
-          <button
-            type="button"
-            onClick={stop}
-            aria-label="Stop recording"
-            style={{ ...roundStyle, background: '#E2574C' }}
-          >
-            <span
-              style={{
-                width: 13,
-                height: 13,
-                borderRadius: 3,
-                background: '#fff',
-              }}
-            />
+        <div style={{ display: 'flex', gap: 8 }}>
+          <button type="button" onClick={start} style={pillStyle}>
+            Try again
           </button>
-          <div style={{ fontSize: 14, fontWeight: 600, color: '#17151C' }}>
-            {formatClock(elapsed)}
-          </div>
-          <div style={{ fontSize: 13, color: '#B9302A' }}>recording</div>
+          {onCancel ? (
+            <button
+              type="button"
+              onClick={onCancel}
+              style={{
+                ...pillStyle,
+                background: 'transparent',
+                color: '#8B8794',
+              }}
+            >
+              Cancel
+            </button>
+          ) : null}
         </div>
       </div>
     )
   }
 
-  if (!clip) {
+  // One surface for idle + recording: waveform + press to record / stop
+  if (!clip || recording) {
+    const bars = recording
+      ? [...live, ...new Array(Math.max(0, BARS - live.length)).fill(0)]
+      : IDLE_PEAKS
     return (
-      <button
-        type="button"
-        onClick={start}
-        style={{
-          ...pillStyle,
-          display: 'flex',
-          alignItems: 'center',
-          gap: 8,
-          justifyContent: 'center',
-        }}
-      >
-        <span
-          style={{
-            width: 11,
-            height: 11,
-            borderRadius: '50%',
-            background: '#E2574C',
-          }}
+      <div style={{ display: 'grid', gap: 12 }}>
+        <Wave
+          peaks={bars}
+          played={0}
+          color={recording ? '#E2574C' : '#C8C4D2'}
         />
-        Start recording
-      </button>
+        <div style={{ display: 'flex', alignItems: 'center', gap: 10 }}>
+          <button
+            type="button"
+            onClick={recording ? stop : start}
+            aria-label={recording ? 'Stop recording' : 'Start recording'}
+            style={{
+              ...roundStyle,
+              background: '#E2574C',
+            }}
+          >
+            {recording ? (
+              <span
+                style={{
+                  width: 13,
+                  height: 13,
+                  borderRadius: 3,
+                  background: '#fff',
+                }}
+              />
+            ) : (
+              <span
+                style={{
+                  width: 14,
+                  height: 14,
+                  borderRadius: '50%',
+                  background: '#fff',
+                }}
+              />
+            )}
+          </button>
+          <div style={{ fontSize: 14, fontWeight: 600, color: '#17151C' }}>
+            {formatClock(elapsed)}
+            <span style={{ color: '#B9B6C4', fontWeight: 500 }}>
+              {' '}
+              / {formatClock(MAX_SECONDS)}
+            </span>
+          </div>
+          <div
+            style={{
+              marginLeft: 'auto',
+              fontSize: 13,
+              color: recording ? '#B9302A' : '#8B8794',
+            }}
+          >
+            {recording
+              ? elapsed >= MAX_SECONDS - 0.05
+                ? 'max length'
+                : 'recording'
+              : 'tap to record'}
+          </div>
+        </div>
+      </div>
     )
   }
 
@@ -253,7 +294,14 @@ export function VoiceNote({ clip, onChange }: Props) {
         </div>
         <button
           type="button"
-          onClick={start}
+          onClick={() => {
+            if (clip?.url) URL.revokeObjectURL(clip.url)
+            setPlaying(false)
+            setProgress(0)
+            setElapsed(0)
+            setLive([])
+            onChange(null)
+          }}
           style={{
             marginLeft: 'auto',
             border: 'none',

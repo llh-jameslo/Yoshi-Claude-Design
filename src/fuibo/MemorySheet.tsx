@@ -6,6 +6,9 @@ import {
   type PointerEvent as ReactPointerEvent,
   type ReactNode,
 } from 'react'
+import { KB_ANIM_MS } from '../components/IOSDevice'
+import { useCompactViewport } from '../hooks/useCompactViewport'
+import { useKeyboardInset } from '../hooks/useKeyboardInset'
 import {
   formatMemoryStamp,
   newBlockId,
@@ -19,20 +22,60 @@ import { VoiceNote, type VoiceClip } from './VoiceNote'
 export const SHEET_MS = 420
 const SHEET_EASE = 'cubic-bezier(0.32, 0.72, 0, 1)'
 
+/** Keep the focused memory card visible above the keyboard / Done footer. */
+function scrollCardAboveKeyboard(card: HTMLElement) {
+  const scroller = card.closest('.fuibo-scroll') as HTMLElement | null
+  if (!scroller) {
+    card.scrollIntoView({ block: 'center', behavior: 'smooth' })
+    return
+  }
+  const sRect = scroller.getBoundingClientRect()
+  const cRect = card.getBoundingClientRect()
+  // Park the card near the upper third of the visible scrollport
+  const desiredTop = sRect.top + Math.min(72, sRect.height * 0.14)
+  const delta = cRect.top - desiredTop
+  if (Math.abs(delta) > 6) {
+    scroller.scrollBy({ top: delta, behavior: 'smooth' })
+  }
+}
+
 const CARD_ORDER: MemoryBlockKind[] = [
-  'location',
-  'memo',
+  // location + mood hidden for now
   'photos',
+  'memo',
   'voice',
-  'mood',
 ]
+
+function MemoIcon({ size = 28 }: { size?: number }) {
+  return (
+    <svg
+      width={size}
+      height={size}
+      viewBox="0 0 32 32"
+      fill="none"
+      aria-hidden
+    >
+      {/* Soft shadow under the sticky */}
+      <rect x="7.5" y="6.5" width="18" height="20" rx="2.5" fill="#E8D48A" />
+      {/* Yellow sticky note */}
+      <rect x="6" y="5" width="18" height="20" rx="2.5" fill="#FBE983" />
+      {/* Folded corner */}
+      <path d="M20 5h4v4c0-2.2-1.8-4-4-4Z" fill="#F3D96A" />
+      <path d="M20 5v4h4L20 5Z" fill="#E8C84E" />
+      {/* Ruled lines */}
+      <rect x="9.5" y="11" width="11" height="1.5" rx="0.75" fill="#D4B84A" />
+      <rect x="9.5" y="15" width="11" height="1.5" rx="0.75" fill="#D4B84A" />
+      <rect x="9.5" y="19" width="7.5" height="1.5" rx="0.75" fill="#D4B84A" />
+    </svg>
+  )
+}
 
 const CARD_META: Record<
   MemoryBlockKind,
-  { icon: string; prompt: string; tint: string }
+  { icon: ReactNode; prompt: string; tint: string }
 > = {
   location: { icon: '🗺️', prompt: 'Where were you?', tint: '#FFFFFF' },
-  memo: { icon: '📝', prompt: 'Good to Know', tint: '#FBE983' },
+  memo: { icon: <MemoIcon />, prompt: 'Write more', tint: '#FBE983' },
   photos: { icon: '🖼️', prompt: 'What did it look like?', tint: '#FFFFFF' },
   voice: { icon: '🎙️', prompt: 'Say it out loud', tint: '#FFFFFF' },
   mood: { icon: '💛', prompt: 'How did it feel?', tint: '#FFFFFF' },
@@ -56,6 +99,27 @@ function emptyBlock(kind: MemoryBlockKind): MemoryBlock {
   return { kind, id, emoji: '', label: '' }
 }
 
+function blockHasContent(block: MemoryBlock | undefined): boolean {
+  if (!block) return false
+  if (block.kind === 'memo') return block.text.trim().length > 0
+  if (block.kind === 'voice') return Boolean(block.url)
+  if (block.kind === 'photos') return block.urls.length > 0
+  if (block.kind === 'location')
+    return Boolean(block.label.trim() || (block.lat != null && block.lon != null))
+  if (block.kind === 'mood') return Boolean(block.emoji)
+  return false
+}
+
+/** Contentful cards float above empties; relative order within each group stays CARD_ORDER. */
+function orderByContent(blocks: MemoryBlock[]): MemoryBlockKind[] {
+  const has = (kind: MemoryBlockKind) =>
+    blockHasContent(blocks.find((b) => b.kind === kind))
+  return [
+    ...CARD_ORDER.filter((k) => has(k)),
+    ...CARD_ORDER.filter((k) => !has(k)),
+  ]
+}
+
 /** Local-time value for <input type="datetime-local">. */
 function toLocalInput(at: number) {
   const d = new Date(at)
@@ -77,7 +141,10 @@ type Props = {
   memory: Memory | null
   mode: 'compose' | 'view'
   yoshis: OwnedYoshi[]
-  onClose: () => void
+  /** Slide away but keep the draft so Plant memory can reopen it. */
+  onHide: (draft: Memory) => void
+  /** Close (✕) — wipe the compose draft and start fresh next time. */
+  onDiscard: () => void
   onSave: (memory: Memory) => void
   onDelete: (id: string) => void
 }
@@ -87,7 +154,8 @@ export function MemorySheet({
   memory,
   mode,
   yoshis,
-  onClose,
+  onHide,
+  onDiscard,
   onSave,
 }: Props) {
   const [render, setRender] = useState(open)
@@ -95,17 +163,54 @@ export function MemorySheet({
   const [draft, setDraft] = useState<Memory | null>(memory)
   const [drag, setDrag] = useState(0)
   const [dragging, setDragging] = useState(false)
+  /** Visual collage order — frozen while a card is being edited. */
+  const [stackOrder, setStackOrder] = useState<MemoryBlockKind[]>(() =>
+    orderByContent(memory?.blocks ?? []),
+  )
+  const [editingKind, setEditingKind] = useState<MemoryBlockKind | null>(null)
+  const compact = useCompactViewport()
+  const keyboardInset = useKeyboardInset()
 
   useEffect(() => {
-    if (memory) setDraft(memory)
+    if (memory) {
+      setDraft(memory)
+      setStackOrder(orderByContent(memory.blocks))
+      setEditingKind(null)
+    }
   }, [memory])
+
+  // After keyboard opens (desktop fake KB or mobile inset), lift the editing card into view
+  useEffect(() => {
+    if (editingKind !== 'memo' && editingKind !== 'voice') return
+    const delay = compact
+      ? keyboardInset > 0
+        ? 80
+        : 280
+      : KB_ANIM_MS + 48
+    const t = window.setTimeout(() => {
+      const card = document.querySelector<HTMLElement>(
+        `[data-memory-card][data-kind="${editingKind}"]`,
+      )
+      if (card) scrollCardAboveKeyboard(card)
+    }, delay)
+    return () => window.clearTimeout(t)
+  }, [editingKind, compact, keyboardInset])
 
   useEffect(() => {
     if (open) {
       setRender(true)
       setDrag(0)
-      const id = requestAnimationFrame(() => setShown(true))
-      return () => cancelAnimationFrame(id)
+      setShown(false)
+      setEditingKind(null)
+      if (memory) setStackOrder(orderByContent(memory.blocks))
+      let raf2 = 0
+      const raf1 = requestAnimationFrame(() => {
+        raf2 = requestAnimationFrame(() => setShown(true))
+      })
+      return () => {
+        cancelAnimationFrame(raf1)
+        cancelAnimationFrame(raf2)
+      }
     }
     setShown(false)
     const t = window.setTimeout(() => setRender(false), SHEET_MS)
@@ -113,46 +218,74 @@ export function MemorySheet({
   }, [open])
 
   const startY = useRef(0)
+  const dragY = useRef(0)
   const canDrag = useRef(false)
 
+  const hide = () => {
+    if (!draft) return
+    onHide(draft)
+  }
+
+  const discard = () => {
+    if (mode === 'compose' && draft) revokeBlockUrls(draft.blocks)
+    onDiscard()
+  }
+
   const onGrabDown = (e: ReactPointerEvent) => {
+    if ((e.target as Element | null)?.closest?.('button')) return
     canDrag.current = true
     startY.current = e.clientY
+    dragY.current = 0
     setDragging(true)
     e.currentTarget.setPointerCapture?.(e.pointerId)
   }
   const onGrabMove = (e: ReactPointerEvent) => {
     if (!canDrag.current) return
-    setDrag(Math.max(0, e.clientY - startY.current))
+    const next = Math.max(0, e.clientY - startY.current)
+    dragY.current = next
+    setDrag(next)
   }
   const onGrabUp = () => {
     if (!canDrag.current) return
     canDrag.current = false
     setDragging(false)
-    if (drag > 120) dismiss()
-    else setDrag(0)
+    if (dragY.current > 120) hide()
+    else {
+      dragY.current = 0
+      setDrag(0)
+    }
   }
 
   if (!render || !draft) return null
 
   const patch = (next: Partial<Memory>) => setDraft({ ...draft, ...next })
 
-  const setBlock = (id: string, next: MemoryBlock) =>
-    patch({ blocks: draft.blocks.map((b) => (b.id === id ? next : b)) })
+  const commitBlocks = (nextBlocks: MemoryBlock[]) => {
+    setDraft({ ...draft, blocks: nextBlocks })
+    setEditingKind(null)
+    setStackOrder(orderByContent(nextBlocks))
+  }
 
-  const addBlock = (kind: MemoryBlockKind) =>
-    patch({ blocks: [...draft.blocks, emptyBlock(kind)] })
+  const patchBlocksQuiet = (nextBlocks: MemoryBlock[]) => {
+    setDraft({ ...draft, blocks: nextBlocks })
+  }
+
+  const setBlock = (id: string, next: MemoryBlock) => {
+    patchBlocksQuiet(draft.blocks.map((b) => (b.id === id ? next : b)))
+  }
 
   const removeBlock = (id: string) => {
     const gone = draft.blocks.find((b) => b.id === id)
     if (gone) revokeBlockUrls([gone])
-    patch({ blocks: draft.blocks.filter((b) => b.id !== id) })
+    const nextBlocks = draft.blocks.filter((b) => b.id !== id)
+    if (gone && editingKind === gone.kind) setEditingKind(null)
+    commitBlocks(nextBlocks)
   }
 
-  function dismiss() {
-    // A memory that was never planted takes its attachments with it
-    if (mode === 'compose' && draft) revokeBlockUrls(draft.blocks)
-    onClose()
+  const beginEdit = (kind: MemoryBlockKind) => {
+    if (draft.blocks.some((b) => b.kind === kind)) return
+    setEditingKind(kind)
+    setDraft({ ...draft, blocks: [...draft.blocks, emptyBlock(kind)] })
   }
 
   const authorInfo = draft.author
@@ -164,27 +297,127 @@ export function MemorySheet({
   const hasContent =
     draft.title.trim().length > 0 ||
     draft.body.trim().length > 0 ||
-    draft.blocks.length > 0
+    draft.blocks.some(blockHasContent)
 
-  const missing = CARD_ORDER.filter(
-    (kind) => !draft.blocks.some((b) => b.kind === kind),
-  )
-  const cards: ReactNode[] = []
+  const cards: {
+    key: string
+    portrait: boolean
+    raised: boolean
+    node: ReactNode
+  }[] = []
 
-  draft.blocks.forEach((block) => {
-    cards.push(
-      <FilledCard
-        key={block.id}
-        block={block}
-        onChange={(next) => setBlock(block.id, next)}
-        onRemove={() => removeBlock(block.id)}
-      />,
-    )
-  })
-  missing.forEach((kind) => {
-    cards.push(
-      <AddCard key={kind} kind={kind} onAdd={() => addBlock(kind)} />,
-    )
+  stackOrder.forEach((kind) => {
+    if (kind === 'location' || kind === 'mood') return
+    const block = draft.blocks.find((b) => b.kind === kind)
+    // Content / active edit floats above empty placeholders in the overlap
+    const raised = editingKind === kind || blockHasContent(block)
+
+    if (kind === 'photos') {
+      cards.push({
+        key: 'photos',
+        portrait: true,
+        raised,
+        node: block?.urls[0] ? (
+          <PhotoBleedCard
+            url={block.urls[0]}
+            onRemove={() => removeBlock(block.id)}
+          />
+        ) : (
+          <PhotoAddCard
+            onPick={(url) => {
+              if (block) {
+                const next = {
+                  ...block,
+                  urls: [url],
+                } as Extract<MemoryBlock, { kind: 'photos' }>
+                const nextBlocks = draft.blocks.map((b) =>
+                  b.id === block.id ? next : b,
+                )
+                if (editingKind) patchBlocksQuiet(nextBlocks)
+                else commitBlocks(nextBlocks)
+              } else {
+                const created = emptyBlock('photos') as Extract<
+                  MemoryBlock,
+                  { kind: 'photos' }
+                >
+                created.urls = [url]
+                const nextBlocks = [...draft.blocks, created]
+                if (editingKind) patchBlocksQuiet(nextBlocks)
+                else commitBlocks(nextBlocks)
+              }
+            }}
+          />
+        ),
+      })
+      return
+    }
+
+    if (!block) {
+      cards.push({
+        key: kind,
+        portrait: kind === 'memo',
+        raised: false,
+        node: <AddCard kind={kind} onAdd={() => beginEdit(kind)} />,
+      })
+      return
+    }
+
+    cards.push({
+      key: kind,
+      portrait: kind === 'memo',
+      raised,
+      node: (
+        <FilledCard
+          block={block}
+          autoFocus={kind === 'memo' && editingKind === 'memo'}
+          onChange={(next) => setBlock(block.id, next)}
+          onRemove={() => removeBlock(block.id)}
+          onMemoBlur={() => {
+            setDraft((d) => {
+              if (!d) return d
+              const current = d.blocks.find((b) => b.id === block.id)
+              if (!current || current.kind !== 'memo') return d
+              if (!current.text.trim()) {
+                revokeBlockUrls([current])
+                const nextBlocks = d.blocks.filter((b) => b.id !== current.id)
+                setEditingKind(null)
+                setStackOrder(orderByContent(nextBlocks))
+                return { ...d, blocks: nextBlocks }
+              }
+              setEditingKind(null)
+              setStackOrder(orderByContent(d.blocks))
+              return d
+            })
+          }}
+          onVoiceCommit={(clip) => {
+            setDraft((d) => {
+              if (!d) return d
+              const nextBlocks = d.blocks.map((b) =>
+                b.id === block.id && b.kind === 'voice'
+                  ? clip
+                    ? {
+                        ...b,
+                        url: clip.url,
+                        seconds: clip.seconds,
+                        peaks: clip.peaks,
+                      }
+                    : { ...b, url: '', seconds: 0, peaks: [] }
+                  : b,
+              )
+              // Clearing for re-record stays in edit; a finished clip can reflow
+              if (clip) {
+                setEditingKind(null)
+                setStackOrder(orderByContent(nextBlocks))
+              } else {
+                setEditingKind('voice')
+              }
+              return { ...d, blocks: nextBlocks }
+            })
+          }}
+          onVoiceCancel={() => removeBlock(block.id)}
+        />
+      ),
+    })
   })
 
   return (
@@ -198,7 +431,7 @@ export function MemorySheet({
       }}
     >
       <div
-        onClick={dismiss}
+        onClick={hide}
         style={{
           position: 'absolute',
           inset: 0,
@@ -230,40 +463,45 @@ export function MemorySheet({
         }}
       >
         <div
+          onPointerDown={onGrabDown}
+          onPointerMove={onGrabMove}
+          onPointerUp={onGrabUp}
+          onPointerCancel={onGrabUp}
           style={{
             paddingTop: 'var(--nav-top, 56px)',
             flexShrink: 0,
+            touchAction: 'none',
+            cursor: 'grab',
           }}
         >
           <div
             style={{
               display: 'flex',
               alignItems: 'center',
-              justifyContent: 'flex-end',
+              justifyContent: 'center',
               padding: '10px 20px 0',
+              position: 'relative',
             }}
           >
+            <div
+              aria-hidden
+              style={{
+                width: 40,
+                height: 5,
+                borderRadius: 999,
+                background: 'rgba(23,21,28,0.14)',
+              }}
+            />
             <button
               type="button"
-              onClick={dismiss}
+              onClick={discard}
               aria-label="Close"
-              style={circleBtn}
+              style={{ ...circleBtn, position: 'absolute', right: 20 }}
             >
               <span style={{ fontSize: 17, lineHeight: 1 }}>✕</span>
             </button>
           </div>
-          <div
-            onPointerDown={onGrabDown}
-            onPointerMove={onGrabMove}
-            onPointerUp={onGrabUp}
-            onPointerCancel={onGrabUp}
-            aria-hidden
-            style={{
-              height: 18,
-              touchAction: 'none',
-              cursor: 'grab',
-            }}
-          />
+          <div aria-hidden style={{ height: 12 }} />
         </div>
 
         <div
@@ -271,98 +509,115 @@ export function MemorySheet({
           style={{
             flex: 1,
             overflowY: 'auto',
-            padding: '14px 24px 120px',
+            padding: `14px 24px ${Math.max(120, 120 + keyboardInset + (editingKind ? 80 : 0))}px`,
             WebkitOverflowScrolling: 'touch',
+            // Fade cards out as they approach the sticky Done footer
+            WebkitMaskImage:
+              'linear-gradient(to bottom, #000 0%, #000 calc(100% - 110px), transparent 100%)',
+            maskImage:
+              'linear-gradient(to bottom, #000 0%, #000 calc(100% - 110px), transparent 100%)',
           }}
         >
-          <AutoTextarea
-            value={draft.title}
-            onChange={(title) => patch({ title })}
-            placeholder="Name this memory"
-            style={{
-              fontSize: 32,
-              fontWeight: 700,
-              lineHeight: 1.14,
-              letterSpacing: '-.02em',
-              color: '#17151C',
-            }}
-          />
-
           <div
             style={{
               display: 'flex',
-              alignItems: 'center',
-              gap: 8,
-              flexWrap: 'wrap',
-              margin: '10px 0 4px',
+              flexDirection: 'column',
+              gap: 12,
             }}
           >
-            <label style={stampChip}>
-              {formatMemoryStamp(draft.at)}
-              <input
-                type="datetime-local"
-                value={toLocalInput(draft.at)}
-                onChange={(e) => {
-                  const next = new Date(e.target.value).getTime()
-                  if (!Number.isNaN(next)) patch({ at: next })
-                }}
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  opacity: 0,
-                  cursor: 'pointer',
-                  fontFamily: 'inherit',
-                }}
-              />
-            </label>
-            {author ? (
-              <span style={{ ...stampChip, gap: 7, paddingLeft: 5 }}>
-                <img
-                  src={author.image}
-                  alt=""
+            <AutoTextarea
+              value={draft.title}
+              onChange={(title) => patch({ title })}
+              placeholder="Memory Title"
+              style={{
+                fontSize: 32,
+                fontWeight: 700,
+                lineHeight: 1.14,
+                letterSpacing: '-.02em',
+                color: '#433A33',
+              }}
+            />
+
+            <div
+              style={{
+                display: 'flex',
+                alignItems: 'center',
+                gap: 12,
+                flexWrap: 'wrap',
+              }}
+            >
+              <label style={stampChip}>
+                {formatMemoryStamp(draft.at)}
+                <input
+                  type="datetime-local"
+                  value={toLocalInput(draft.at)}
+                  onChange={(e) => {
+                    const next = new Date(e.target.value).getTime()
+                    if (!Number.isNaN(next)) patch({ at: next })
+                  }}
                   style={{
-                    width: 22,
-                    height: 22,
-                    borderRadius: '50%',
-                    objectFit: 'cover',
+                    position: 'absolute',
+                    inset: 0,
+                    opacity: 0,
+                    cursor: 'pointer',
+                    fontFamily: 'inherit',
                   }}
                 />
-                {author.name} wrote this
-              </span>
-            ) : null}
-          </div>
+              </label>
+              {author ? (
+                <span style={{ ...stampChip, gap: 7, paddingLeft: 5 }}>
+                  <img
+                    src={author.image}
+                    alt=""
+                    style={{
+                      width: 22,
+                      height: 22,
+                      borderRadius: '50%',
+                      objectFit: 'cover',
+                    }}
+                  />
+                  {author.name} wrote this
+                </span>
+              ) : null}
+            </div>
 
-          <AutoTextarea
-            value={draft.body}
-            onChange={(body) => patch({ body })}
-            placeholder="What happened?"
-            style={{
-              fontSize: 16,
-              lineHeight: 1.55,
-              color: '#6F6B7A',
-              marginTop: 6,
-            }}
-          />
+            <AutoTextarea
+              value={draft.body}
+              onChange={(body) => patch({ body })}
+              placeholder={
+                "A little something from today…\nWhat made this moment feel worth keeping?"
+              }
+              style={{
+                fontSize: 14,
+                lineHeight: 1.55,
+                color: '#2C241C',
+                minHeight: draft.body ? undefined : 44,
+              }}
+            />
+          </div>
 
           <div
             style={{
               display: 'flex',
               flexDirection: 'column',
-              marginTop: 26,
+              marginTop: 40,
             }}
           >
             {cards.map((card, i) => (
               <div
-                key={i}
+                key={card.key}
                 style={{
-                  width: '82%',
+                  // Portrait ~reference collage size; voice stays wide landscape
+                  width: card.portrait ? '58%' : '82%',
                   alignSelf: i % 2 === 0 ? 'flex-start' : 'flex-end',
-                  marginTop: i === 0 ? 0 : -20,
-                  transform: `rotate(${i % 2 === 0 ? -0.7 : 0.7}deg)`,
-                  zIndex: i + 1,
+                  // Deep stagger so cards tuck under each other like the mock
+                  marginTop: i === 0 ? 0 : card.portrait ? -56 : -28,
+                  transform: `rotate(${i % 2 === 0 ? -1.2 : 1.4}deg)`,
+                  // Filled / editing cards sit above empty placeholders in the collage
+                  zIndex: (card.raised ? 40 : 0) + i + 1,
                 }}
               >
-                {card}
+                {card.node}
               </div>
             ))}
           </div>
@@ -371,9 +626,17 @@ export function MemorySheet({
         <div
           style={{
             position: 'absolute',
-            right: 24,
-            bottom: 'calc(26px + var(--safe-bottom, 0px))',
-            zIndex: 2,
+            left: 0,
+            right: 0,
+            bottom: 0,
+            zIndex: 20,
+            pointerEvents: 'none',
+            padding:
+              '28px 24px calc(44px + var(--safe-bottom, 0px))',
+            background:
+              'linear-gradient(to bottom, rgba(255,255,255,0) 0%, rgba(255,255,255,0.92) 42%, #FFFFFF 72%)',
+            display: 'flex',
+            justifyContent: 'flex-end',
           }}
         >
           <button
@@ -381,21 +644,61 @@ export function MemorySheet({
             disabled={!hasContent}
             onClick={() => onSave(draft)}
             style={{
-              border: 'none',
-              borderRadius: 999,
-              padding: '15px 26px',
-              fontSize: 16,
-              fontWeight: 600,
-              color: '#fff',
-              background: hasContent ? '#2F80F5' : 'rgba(47,128,245,0.4)',
-              boxShadow: hasContent
-                ? '0 10px 24px rgba(47,128,245,0.34)'
-                : 'none',
-              cursor: hasContent ? 'pointer' : 'default',
+              pointerEvents: 'auto',
+              display: 'flex',
+              alignItems: 'center',
+              gap: 16,
+              background: '#FFFFFF',
+              borderRadius: 24,
+              border: '1.5px solid #17151C',
+              padding: '8px 12px 8px 18px',
+              fontSize: 17,
+              lineHeight: 1.25,
               fontFamily: 'inherit',
+              fontWeight: 600,
+              textAlign: 'left',
+              color: '#17151C',
+              boxShadow: '0 8px 22px rgba(26,24,20,.22)',
+              cursor: hasContent ? 'pointer' : 'default',
+              opacity: hasContent ? 1 : 0.45,
+              whiteSpace: 'nowrap',
             }}
           >
-            {mode === 'compose' ? 'Plant it' : 'Done'}
+            <span>{mode === 'compose' ? 'Plant it' : 'Done'}</span>
+            <span
+              aria-hidden
+              style={{
+                flex: 'none',
+                width: 40,
+                height: 40,
+                borderRadius: '50%',
+                background: '#17151C',
+                display: 'flex',
+                alignItems: 'center',
+                justifyContent: 'center',
+              }}
+            >
+              {mode === 'compose' ? (
+                <svg width="22" height="22" viewBox="0 0 24 24" fill="none">
+                  <circle cx="12" cy="8" r="3.2" fill="#fff" />
+                  <circle cx="16.2" cy="11" r="3.2" fill="#fff" />
+                  <circle cx="14.6" cy="15.8" r="3.2" fill="#fff" />
+                  <circle cx="9.4" cy="15.8" r="3.2" fill="#fff" />
+                  <circle cx="7.8" cy="11" r="3.2" fill="#fff" />
+                  <circle cx="12" cy="12" r="2.4" fill="#F4C84A" />
+                </svg>
+              ) : (
+                <svg width="20" height="20" viewBox="0 0 14 14" fill="none">
+                  <path
+                    d="M2.5 7.2L5.4 10.1L11.5 3.8"
+                    stroke="#fff"
+                    strokeWidth="1.9"
+                    strokeLinecap="round"
+                    strokeLinejoin="round"
+                  />
+                </svg>
+              )}
+            </span>
           </button>
         </div>
       </div>
@@ -408,11 +711,15 @@ function AutoTextarea({
   onChange,
   placeholder,
   style,
+  autoFocus,
+  onBlur,
 }: {
   value: string
   onChange: (value: string) => void
   placeholder?: string
   style?: CSSProperties
+  autoFocus?: boolean
+  onBlur?: () => void
 }) {
   const ref = useRef<HTMLTextAreaElement>(null)
 
@@ -423,11 +730,35 @@ function AutoTextarea({
     el.style.height = `${el.scrollHeight}px`
   }, [value])
 
+  useEffect(() => {
+    if (!autoFocus) return
+    const el = ref.current
+    if (!el) return
+    // rAF so the sheet/card finish laying out before focusing (opens keyboard)
+    const id = requestAnimationFrame(() => {
+      el.focus()
+      const card = el.closest('[data-memory-card]') as HTMLElement | null
+      if (card) {
+        // Immediate nudge; a second pass runs after the keyboard animates
+        window.setTimeout(() => scrollCardAboveKeyboard(card), 40)
+      }
+    })
+    return () => cancelAnimationFrame(id)
+  }, [autoFocus])
+
   return (
     <textarea
       ref={ref}
+      className="ms-field"
       value={value}
       onChange={(e) => onChange(e.target.value)}
+      onBlur={(e) => {
+        // Stay in edit if focus moves to delete / another control on this card
+        const card = e.currentTarget.closest('[data-memory-card]')
+        const next = e.relatedTarget as Node | null
+        if (card && next && card.contains(next)) return
+        onBlur?.()
+      }}
       placeholder={placeholder}
       rows={1}
       style={{
@@ -454,6 +785,7 @@ function AddCard({
   onAdd: () => void
 }) {
   const meta = CARD_META[kind]
+  const portrait = kind === 'memo'
   return (
     <button
       type="button"
@@ -461,10 +793,12 @@ function AddCard({
       style={{
         position: 'relative',
         width: '100%',
-        minHeight: 168,
+        minHeight: portrait ? undefined : 168,
+        aspectRatio: portrait ? '4 / 5' : undefined,
         border: '1.6px dashed #D6D3E0',
         borderRadius: 22,
-        background: 'rgba(255,255,255,0.55)',
+        background: '#FFFFFF',
+        boxShadow: '0 8px 26px rgba(20,17,26,0.10)',
         display: 'flex',
         flexDirection: 'column',
         alignItems: 'center',
@@ -509,17 +843,124 @@ function AddCard({
   )
 }
 
+/** ⋯ expands left into Delete — shared by photo + filled cards. */
+function CardMoreDelete({
+  onDelete,
+  tone = 'light',
+}: {
+  onDelete: () => void
+  tone?: 'light' | 'onMedia'
+}) {
+  const [armed, setArmed] = useState(false)
+
+  useEffect(() => {
+    if (!armed) return
+    const t = window.setTimeout(() => setArmed(false), 2800)
+    return () => window.clearTimeout(t)
+  }, [armed])
+
+  const idleBg =
+    tone === 'onMedia' ? 'rgba(20,17,26,0.55)' : 'rgba(23,21,28,0.08)'
+  const idleFg = tone === 'onMedia' ? '#fff' : '#5A5666'
+
+  return (
+    <button
+      type="button"
+      onClick={(e) => {
+        e.stopPropagation()
+        if (!armed) {
+          setArmed(true)
+          return
+        }
+        onDelete()
+      }}
+      aria-label={armed ? 'Delete' : 'Card options'}
+      aria-expanded={armed}
+      style={{
+        position: 'absolute',
+        top: 10,
+        right: 10,
+        zIndex: 2,
+        height: 28,
+        width: armed ? 78 : 28,
+        borderRadius: 999,
+        border: 'none',
+        background: armed ? '#E2574C' : idleBg,
+        color: '#fff',
+        cursor: 'pointer',
+        padding: 0,
+        fontFamily: 'inherit',
+        display: 'flex',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 4,
+        overflow: 'hidden',
+        whiteSpace: 'nowrap',
+        boxSizing: 'border-box',
+        transition:
+          'width 220ms cubic-bezier(0.32, 0.72, 0, 1), background 180ms ease',
+      }}
+    >
+      {armed ? (
+        <>
+          <svg width="14" height="14" viewBox="0 0 24 24" fill="none" aria-hidden>
+            <path
+              d="M4 7h16"
+              stroke="#fff"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+            <path
+              d="M10 4h4a1 1 0 0 1 1 1v2H9V5a1 1 0 0 1 1-1Z"
+              stroke="#fff"
+              strokeWidth="2"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M6.5 7l1 12a2 2 0 0 0 2 2h5a2 2 0 0 0 2-2l1-12"
+              stroke="#fff"
+              strokeWidth="2"
+              strokeLinejoin="round"
+            />
+            <path
+              d="M10 11v6M14 11v6"
+              stroke="#fff"
+              strokeWidth="2"
+              strokeLinecap="round"
+            />
+          </svg>
+          <span style={{ fontSize: 12, fontWeight: 650 }}>Delete</span>
+        </>
+      ) : (
+        <svg width="14" height="14" viewBox="0 0 14 14" fill="none" aria-hidden>
+          <circle cx="3.2" cy="7" r="1.25" fill={idleFg} />
+          <circle cx="7" cy="7" r="1.25" fill={idleFg} />
+          <circle cx="10.8" cy="7" r="1.25" fill={idleFg} />
+        </svg>
+      )}
+    </button>
+  )
+}
+
 function CardShell({
   tint,
   onRemove,
   children,
+  portrait,
+  minHeight,
+  kind,
 }: {
   tint: string
   onRemove: () => void
   children: ReactNode
+  portrait?: boolean
+  minHeight?: number
+  kind?: MemoryBlockKind
 }) {
   return (
     <div
+      data-memory-card
+      data-kind={kind}
       style={{
         position: 'relative',
         borderRadius: 22,
@@ -527,31 +968,14 @@ function CardShell({
         boxShadow: '0 8px 26px rgba(20,17,26,0.10)',
         // Extra room at the foot so the next card's overlap never eats content
         padding: '18px 18px 34px',
+        aspectRatio: portrait ? '4 / 5' : undefined,
+        minHeight,
+        boxSizing: 'border-box',
+        display: portrait || minHeight ? 'flex' : undefined,
+        flexDirection: portrait || minHeight ? 'column' : undefined,
       }}
     >
-      <button
-        type="button"
-        onClick={onRemove}
-        aria-label="Remove card"
-        style={{
-          position: 'absolute',
-          top: 10,
-          right: 10,
-          width: 28,
-          height: 28,
-          borderRadius: '50%',
-          border: 'none',
-          background: 'rgba(23,21,28,0.07)',
-          color: '#5A5666',
-          fontSize: 14,
-          lineHeight: 1,
-          cursor: 'pointer',
-          fontFamily: 'inherit',
-          padding: 0,
-        }}
-      >
-        ✕
-      </button>
+      <CardMoreDelete onDelete={onRemove} tone="light" />
       {children}
     </div>
   )
@@ -561,15 +985,30 @@ function FilledCard({
   block,
   onChange,
   onRemove,
+  autoFocus,
+  onMemoBlur,
+  onVoiceCommit,
+  onVoiceCancel,
 }: {
   block: MemoryBlock
   onChange: (next: MemoryBlock) => void
   onRemove: () => void
+  autoFocus?: boolean
+  onMemoBlur?: () => void
+  onVoiceCommit?: (clip: VoiceClip | null) => void
+  onVoiceCancel?: () => void
 }) {
   const meta = CARD_META[block.kind]
 
   return (
-    <CardShell tint={meta.tint} onRemove={onRemove}>
+    <CardShell
+      kind={block.kind}
+      tint={meta.tint}
+      onRemove={onRemove}
+      portrait={block.kind === 'memo'}
+      // Match AddCard height so opening voice doesn't shove the collage
+      minHeight={block.kind === 'voice' ? 168 : undefined}
+    >
       <div
         style={{
           fontSize: 12,
@@ -587,8 +1026,15 @@ function FilledCard({
         <AutoTextarea
           value={block.text}
           onChange={(text) => onChange({ ...block, text })}
+          autoFocus={autoFocus}
+          onBlur={onMemoBlur}
           placeholder="Anything worth remembering…"
-          style={{ fontSize: 14, lineHeight: 1.7, color: '#3B3520' }}
+          style={{
+            flex: 1,
+            fontSize: 14,
+            lineHeight: 1.7,
+            color: '#3B3520',
+          }}
         />
       ) : null}
 
@@ -596,22 +1042,37 @@ function FilledCard({
         <LocationCard block={block} onChange={onChange} />
       ) : null}
 
-      {block.kind === 'photos' ? (
-        <PhotosCard block={block} onChange={onChange} />
-      ) : null}
-
       {block.kind === 'voice' ? (
-        <VoiceNote
-          clip={block.url ? { url: block.url, seconds: block.seconds, peaks: block.peaks } : null}
-          onChange={(clip: VoiceClip) =>
-            onChange({
-              ...block,
-              url: clip.url,
-              seconds: clip.seconds,
-              peaks: clip.peaks,
-            })
-          }
-        />
+        <div style={{ flex: 1, display: 'flex', flexDirection: 'column', justifyContent: 'center' }}>
+          <VoiceNote
+            clip={
+              block.url
+                ? {
+                    url: block.url,
+                    seconds: block.seconds,
+                    peaks: block.peaks,
+                  }
+                : null
+            }
+            onChange={(clip: VoiceClip | null) => {
+              if (onVoiceCommit) {
+                onVoiceCommit(clip)
+                return
+              }
+              onChange(
+                clip
+                  ? {
+                      ...block,
+                      url: clip.url,
+                      seconds: clip.seconds,
+                      peaks: clip.peaks,
+                    }
+                  : { ...block, url: '', seconds: 0, peaks: [] },
+              )
+            }}
+            onCancel={onVoiceCancel}
+          />
+        </div>
       ) : null}
 
       {block.kind === 'mood' ? (
@@ -778,114 +1239,115 @@ function MapThumb({ lat, lon }: { lat: number; lon: number }) {
   )
 }
 
-function PhotosCard({
-  block,
-  onChange,
-}: {
-  block: Extract<MemoryBlock, { kind: 'photos' }>
-  onChange: (next: MemoryBlock) => void
-}) {
+/** Dashed photo tile — tap opens the camera roll immediately. */
+function PhotoAddCard({ onPick }: { onPick: (url: string) => void }) {
   const inputRef = useRef<HTMLInputElement>(null)
+  const meta = CARD_META.photos
 
   return (
-    <div style={{ display: 'grid', gap: 10 }}>
-      {block.urls.length ? (
-        <div
-          style={{
-            display: 'grid',
-            gridTemplateColumns: 'repeat(3, 1fr)',
-            gap: 6,
-          }}
-        >
-          {block.urls.map((url) => (
-            <div
-              key={url}
-              style={{
-                position: 'relative',
-                paddingTop: '100%',
-                borderRadius: 10,
-                overflow: 'hidden',
-                background: '#EFEDF5',
-              }}
-            >
-              <img
-                src={url}
-                alt=""
-                style={{
-                  position: 'absolute',
-                  inset: 0,
-                  width: '100%',
-                  height: '100%',
-                  objectFit: 'cover',
-                }}
-              />
-              <button
-                type="button"
-                aria-label="Remove photo"
-                onClick={() => {
-                  URL.revokeObjectURL(url)
-                  onChange({
-                    ...block,
-                    urls: block.urls.filter((u) => u !== url),
-                  })
-                }}
-                style={{
-                  position: 'absolute',
-                  top: 4,
-                  right: 4,
-                  width: 20,
-                  height: 20,
-                  borderRadius: '50%',
-                  border: 'none',
-                  background: 'rgba(20,17,26,0.6)',
-                  color: '#fff',
-                  fontSize: 11,
-                  lineHeight: 1,
-                  cursor: 'pointer',
-                  padding: 0,
-                  fontFamily: 'inherit',
-                }}
-              >
-                ✕
-              </button>
-            </div>
-          ))}
-        </div>
-      ) : null}
-
-      <button
-        type="button"
-        onClick={() => inputRef.current?.click()}
+    <button
+      type="button"
+      onClick={() => inputRef.current?.click()}
+      style={{
+        position: 'relative',
+        width: '100%',
+        aspectRatio: '4 / 5',
+        border: '1.6px dashed #D6D3E0',
+        borderRadius: 22,
+        background: '#FFFFFF',
+        boxShadow: '0 8px 26px rgba(20,17,26,0.10)',
+        display: 'flex',
+        flexDirection: 'column',
+        alignItems: 'center',
+        justifyContent: 'center',
+        gap: 12,
+        cursor: 'pointer',
+        fontFamily: 'inherit',
+        padding: 18,
+      }}
+    >
+      <span
         style={{
-          border: 'none',
-          borderRadius: 999,
-          background: 'rgba(23,21,28,0.06)',
-          padding: '11px 16px',
-          fontSize: 14,
-          fontWeight: 600,
-          color: '#17151C',
-          cursor: 'pointer',
-          fontFamily: 'inherit',
+          position: 'absolute',
+          top: 12,
+          right: 16,
+          fontSize: 20,
+          color: '#B9B6C4',
+          lineHeight: 1,
         }}
       >
-        {block.urls.length ? 'Add more' : 'Choose photos'}
-      </button>
+        +
+      </span>
+      <span
+        style={{
+          width: 46,
+          height: 46,
+          borderRadius: 13,
+          background: '#fff',
+          boxShadow: '0 4px 12px rgba(20,17,26,0.10)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          fontSize: 24,
+        }}
+      >
+        {meta.icon}
+      </span>
+      <span style={{ fontSize: 14, fontWeight: 600, color: '#17151C' }}>
+        {meta.prompt}
+      </span>
       <input
         ref={inputRef}
         type="file"
         accept="image/*"
-        multiple
         onChange={(e) => {
-          const files = Array.from(e.currentTarget.files ?? [])
-          if (files.length) {
-            onChange({
-              ...block,
-              urls: [...block.urls, ...files.map((f) => URL.createObjectURL(f))],
-            })
-          }
+          const file = e.currentTarget.files?.[0]
+          if (file) onPick(URL.createObjectURL(file))
           e.currentTarget.value = ''
         }}
         style={{ display: 'none' }}
+      />
+    </button>
+  )
+}
+
+/** One photo fills a portrait card frame. */
+function PhotoBleedCard({
+  url,
+  onRemove,
+}: {
+  url: string
+  onRemove: () => void
+}) {
+  return (
+    <div
+      style={{
+        position: 'relative',
+        width: '100%',
+        aspectRatio: '4 / 5',
+        borderRadius: 22,
+        overflow: 'hidden',
+        boxShadow: '0 8px 26px rgba(20,17,26,0.12)',
+        background: '#EFEDF5',
+      }}
+    >
+      <img
+        src={url}
+        alt=""
+        style={{
+          position: 'absolute',
+          inset: 0,
+          width: '100%',
+          height: '100%',
+          objectFit: 'cover',
+        }}
+      />
+      <CardMoreDelete
+        tone="onMedia"
+        onDelete={() => {
+          URL.revokeObjectURL(url)
+          onRemove()
+        }}
       />
     </div>
   )
