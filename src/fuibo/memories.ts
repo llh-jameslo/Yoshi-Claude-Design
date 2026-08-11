@@ -69,35 +69,35 @@ export function newBlockId(kind: MemoryBlockKind) {
   return `${kind}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`
 }
 
-const MONTHS = [
-  'January',
-  'February',
-  'March',
-  'April',
+const MONTHS_SHORT = [
+  'Jan',
+  'Feb',
+  'Mar',
+  'Apr',
   'May',
-  'June',
-  'July',
-  'August',
-  'September',
-  'October',
-  'November',
-  'December',
+  'Jun',
+  'Jul',
+  'Aug',
+  'Sep',
+  'Oct',
+  'Nov',
+  'Dec',
 ]
 
-/** "22 March 2026 · 8:48 PM" */
+/** "22 Mar 2026 · 8:48 PM" */
 export function formatMemoryStamp(at: number) {
   const d = new Date(at)
   const h24 = d.getHours()
   const h = h24 % 12 === 0 ? 12 : h24 % 12
   const mm = String(d.getMinutes()).padStart(2, '0')
   const ampm = h24 < 12 ? 'AM' : 'PM'
-  return `${d.getDate()} ${MONTHS[d.getMonth()]} ${d.getFullYear()} · ${h}:${mm} ${ampm}`
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]} ${d.getFullYear()} · ${h}:${mm} ${ampm}`
 }
 
-/** "22 March" — the short form the globe tooltip uses. */
+/** "22 Mar" — the short form the globe tooltip uses. */
 export function formatMemoryDay(at: number) {
   const d = new Date(at)
-  return `${d.getDate()} ${MONTHS[d.getMonth()]}`
+  return `${d.getDate()} ${MONTHS_SHORT[d.getMonth()]}`
 }
 
 export function emptyMemory(
