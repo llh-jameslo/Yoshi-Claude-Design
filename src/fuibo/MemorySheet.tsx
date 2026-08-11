@@ -542,7 +542,7 @@ export function MemorySheet({
               display: 'flex',
               alignItems: 'center',
               justifyContent: 'center',
-              padding: '10px 20px 0',
+              padding: '22px 20px 0',
               position: 'relative',
             }}
           >
