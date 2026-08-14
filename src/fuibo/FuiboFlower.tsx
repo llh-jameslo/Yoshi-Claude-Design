@@ -85,7 +85,7 @@ const TOPIC_PAYLOADS: TopicPayload[] = [
 ]
 
 /** Rests fully zoomed out (whole globe in frame); zoom in only, to a floor. */
-const GARDEN_VIEW = { zoom: 9.5, zoomMin: 6, zoomMax: 9.5 }
+const GARDEN_VIEW = { zoom: 9.5, zoomMin: 3.0, zoomMax: 9.5 }
 
 function toFlower(memory: Memory): GrassGlobeFlower {
   return {
@@ -2230,9 +2230,16 @@ export function FuiboFlower({
                   <GrassGlobe
                     flowers={flowers}
                     hint=""
+                    active={homePage === 1}
                     options={GARDEN_VIEW}
                     handleRef={globeHandle}
                     onFlowerTap={(flower) => viewMemory(flower.id)}
+                    onEnterGame={() => {
+                      setOpen(false)
+                      setKb(false)
+                      setAttach(false)
+                      setScreen('game')
+                    }}
                   />
                 )}
 
@@ -2318,7 +2325,8 @@ export function FuiboFlower({
                       setOpen(false)
                       setKb(false)
                       setAttach(false)
-                      setScreen('game')
+                      if (globeHandle.current) globeHandle.current.enterGame()
+                      else setScreen('game')
                     }}
                     style={{
                       width: 46,

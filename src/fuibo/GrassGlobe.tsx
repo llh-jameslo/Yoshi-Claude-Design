@@ -33,6 +33,11 @@ export type GrassGlobeOptions = {
   zoomMax: number
   stemHeight: number
   flowerSize: number
+  maxFPS: number
+  idleAfter: number
+  mowerScale: number
+  mowerSpeed: number
+  mowerCue: string
 }
 
 type CreateOptions = Partial<GrassGlobeOptions> & {
@@ -40,6 +45,8 @@ type CreateOptions = Partial<GrassGlobeOptions> & {
   onFlowerTap: ((flower: GrassGlobeFlower) => void) | null
   /** First pointer down on the globe (spin / tap). */
   onInteract: (() => void) | null
+  /** Fires when the mower dive finishes — navigate to the game here. */
+  onEnterGame: (() => void) | null
   tipEl: HTMLElement | null
   tipHeadEl: HTMLElement | null
   tipTimeEl: HTMLElement | null
@@ -52,6 +59,11 @@ export type GrassGlobeHandle = {
   syncFlowers: (next: GrassGlobeFlower[]) => void
   /** Turns the globe until the flower faces the camera. */
   focusFlower: (id: string) => void
+  /** Trigger the mower dive from outside. */
+  enterGame: () => void
+  resetView: () => void
+  /** Garden tab shown/hidden — parks the mower in view and pauses off-page. */
+  setPageActive: (active: boolean) => void
 }
 
 type RGB = [number, number, number]
@@ -139,6 +151,11 @@ const DEFAULTS: GrassGlobeOptions = {
   zoomMax: 9.5, // furthest (smallest globe)
   stemHeight: 1.25, // 1.0 = stem exactly as tall as the grass
   flowerSize: 1.0, // 1.0 = default head size
+  maxFPS: 60, // redraws per second (30 halves the battery cost)
+  idleAfter: 2500, // ms of no interaction before it freezes
+  mowerScale: 0.115, // size of the mower on the globe
+  mowerSpeed: 0.12, // radians a second — a lap takes about 50s
+  mowerCue: 'Tap me', // label floating over the mower
 }
 
 function createGrassGlobe(
@@ -195,6 +212,9 @@ function createGrassGlobe(
     uPush: { value: new THREE.Vector3() },
     uStamp: { value: 0 },
     uR: { value: 0.075 }, // size of the parted patch, in radians
+    uHit2: { value: new THREE.Vector3(0, 0, 1) }, // the mower
+    uStamp2: { value: 0 },
+    uR2: { value: 0.055 },
     uDt: { value: 0.016 },
   }
 
@@ -213,8 +233,19 @@ function createGrassGlobe(
       uniform vec3  uPush;
       uniform float uStamp;
       uniform float uR;
+      uniform vec3  uHit2;
+      uniform float uStamp2;
+      uniform float uR2;
       uniform float uDt;
       varying vec2 vUv;
+
+      // grass leans away from a point pressed into it
+      vec2 partAt(vec3 d, vec3 c, float r, float amt, vec3 east, vec3 north, out float hit) {
+        float ang = acos(clamp(dot(d, c), -1.0, 1.0));
+        hit = exp(-(ang * ang) / (r * r)) * amt;
+        vec3 toward = normalize(c - d * dot(c, d) + vec3(1e-6));
+        return -vec2(dot(toward, east), dot(toward, north));
+      }
 
       void main(){
         float lon = (vUv.x - 0.5) * 6.28318531;
@@ -228,13 +259,14 @@ function createGrassGlobe(
         vec2 x = prev.rg * 2.0 - 1.0;
         vec2 v = prev.ba * 2.0 - 1.0;
 
-        float ang = acos(clamp(dot(d, uHitDir), -1.0, 1.0));
-        float hit = exp(-(ang * ang) / (uR * uR)) * uStamp;
-
         // Everything under the cursor leans directly away from it, so the
         // grass parts outward in every direction like a finger pressed in.
-        vec3 toward = normalize(uHitDir - d * dot(uHitDir, d) + vec3(1e-6));
-        vec2 dir = -vec2(dot(toward, east), dot(toward, north));
+        float hit, hitM;
+        vec2 dir  = partAt(d, uHitDir, uR,  uStamp,  east, north, hit);
+        vec2 dirM = partAt(d, uHit2,   uR2, uStamp2, east, north, hitM);
+
+        // whichever is pressing harder here wins
+        if (hitM > hit) { hit = hitM; dir = dirM; }
 
         float dt = min(uDt, 0.033);
 
@@ -802,6 +834,287 @@ function createGrassGlobe(
 
   opt.flowers.forEach((data) => addFlower(data, 1))
 
+  // ================================================================= mower
+  // Same palette and proportions as the mini-game's tractor, but rebuilt with
+  // rounded, properly lit geometry so it belongs next to the grass rather than
+  // looking like a game asset dropped on top.
+  const MOW = {
+    red: 0xd23b2f,
+    redDark: 0xa82a20,
+    dark: 0x25272a,
+    grey: 0xb9bec4,
+    glass: 0xa9d8ea,
+    pink: 0xe8399b,
+    pinkDark: 0xb52577,
+  }
+
+  const partMats: Record<number, THREE.ShaderMaterial> = {}
+  function partMat(hex: number) {
+    if (partMats[hex]) return partMats[hex]
+    const c = new THREE.Color(hex)
+    partMats[hex] = new THREE.ShaderMaterial({
+      uniforms: {
+        uLight: { value: LIGHT },
+        uColor: { value: new THREE.Vector3(c.r, c.g, c.b) },
+      },
+      vertexShader: `
+        varying vec3 vN;
+        varying vec3 vW;
+        void main(){
+          vN = normalize(mat3(modelMatrix) * normal);
+          vec4 wp = modelMatrix * vec4(position, 1.0);
+          vW = wp.xyz;
+          gl_Position = projectionMatrix * viewMatrix * wp;
+        }
+      `,
+      fragmentShader: `
+        precision highp float;
+        uniform vec3 uLight;
+        uniform vec3 uColor;
+        varying vec3 vN;
+        varying vec3 vW;
+        void main(){
+          vec3 N = normalize(vN);
+          if (!gl_FrontFacing) N = -N;
+          vec3 V = normalize(cameraPosition - vW);
+          float lam  = clamp(dot(N, uLight), 0.0, 1.0);
+          float spec = pow(clamp(dot(N, normalize(uLight + V)), 0.0, 1.0), 26.0);
+          float sky  = 0.5 + 0.5 * N.y;
+          vec3 col = uColor * (0.46 + 0.62 * lam + 0.16 * sky) + vec3(0.30) * spec;
+          gl_FragColor = vec4(col, 1.0);
+        }
+      `,
+    })
+    return partMats[hex]
+  }
+
+  // a box with its edges rounded off — reads far softer than a hard cube
+  function roundedBox(w: number, h: number, d: number, r: number, seg?: number) {
+    const g = new THREE.BoxGeometry(w, h, d, seg || 3, seg || 3, seg || 3)
+    const p = g.attributes.position
+    const hx = w / 2 - r,
+      hy = h / 2 - r,
+      hz = d / 2 - r
+    const v = new THREE.Vector3(),
+      inner = new THREE.Vector3()
+    for (let i = 0; i < p.count; i++) {
+      v.fromBufferAttribute(p, i)
+      inner.set(
+        Math.max(-hx, Math.min(hx, v.x)),
+        Math.max(-hy, Math.min(hy, v.y)),
+        Math.max(-hz, Math.min(hz, v.z)),
+      )
+      v.sub(inner).normalize().multiplyScalar(r).add(inner)
+      p.setXYZ(i, v.x, v.y, v.z)
+    }
+    g.computeVertexNormals()
+    return g
+  }
+
+  const mower = new THREE.Group()
+  const mowerParts: THREE.BufferGeometry[] = []
+
+  function part(
+    geo: THREE.BufferGeometry,
+    hex: number,
+    x: number,
+    y: number,
+    z: number,
+    parent?: THREE.Object3D,
+  ) {
+    const m = new THREE.Mesh(geo, partMat(hex))
+    m.position.set(x, y, z)
+    ;(parent || mower).add(m)
+    mowerParts.push(geo)
+    return m
+  }
+  function rbox(
+    w: number,
+    h: number,
+    d: number,
+    r: number,
+    hex: number,
+    x: number,
+    y: number,
+    z: number,
+    parent?: THREE.Object3D,
+  ) {
+    return part(roundedBox(w, h, d, r), hex, x, y, z, parent)
+  }
+
+  // body — proportions lifted from the game tractor
+  rbox(1.15, 0.5, 2.9, 0.13, MOW.dark, 0, 0.75, 0.1)
+  rbox(1.5, 0.62, 1.15, 0.16, MOW.red, 0, 1.22, -0.75)
+  rbox(1.12, 0.82, 1.75, 0.18, MOW.red, 0, 1.28, 0.72)
+  rbox(1.0, 0.2, 0.7, 0.08, MOW.redDark, 0, 1.74, 1.15)
+  rbox(0.9, 0.35, 0.1, 0.04, MOW.grey, 0, 1.15, 1.6)
+  rbox(1.28, 1.0, 1.25, 0.15, MOW.dark, 0, 2.05, -0.55)
+  rbox(1.33, 0.66, 1.3, 0.12, MOW.glass, 0, 2.12, -0.55)
+  rbox(1.52, 0.14, 1.5, 0.06, MOW.red, 0, 2.62, -0.55)
+
+  const exhaustGeo = new THREE.CylinderGeometry(0.055, 0.07, 0.75, 10)
+  part(exhaustGeo, MOW.dark, 0.38, 2.05, 0.95)
+
+  // wheels
+  const wheelR = new THREE.CylinderGeometry(0.8, 0.8, 0.5, 20)
+  const wheelF = new THREE.CylinderGeometry(0.5, 0.5, 0.36, 16)
+  const hubR = new THREE.CylinderGeometry(0.34, 0.34, 0.53, 14)
+  const hubF = new THREE.CylinderGeometry(0.2, 0.2, 0.39, 12)
+  ;[wheelR, wheelF, hubR, hubF].forEach(function (g) {
+    g.rotateZ(Math.PI / 2)
+    mowerParts.push(g)
+  })
+
+  const spinWheels: { m: THREE.Mesh; r: number }[] = []
+  ;[
+    [-0.95, -0.8],
+    [0.95, -0.8],
+  ].forEach(function (p) {
+    const w = new THREE.Mesh(wheelR, partMat(MOW.dark))
+    w.position.set(p[0], 0.8, p[1])
+    w.add(new THREE.Mesh(hubR, partMat(MOW.grey)))
+    mower.add(w)
+    spinWheels.push({ m: w, r: 0.8 })
+  })
+  ;[
+    [-0.82, 1.12],
+    [0.82, 1.12],
+  ].forEach(function (p) {
+    const w = new THREE.Mesh(wheelF, partMat(MOW.dark))
+    w.position.set(p[0], 0.5, p[1])
+    w.add(new THREE.Mesh(hubF, partMat(MOW.grey)))
+    mower.add(w)
+    spinWheels.push({ m: w, r: 0.5 })
+  })
+
+  // pink boom — narrower than the game's, which is sized for coverage
+  const BOOM_W = 4.0,
+    BOOM_Z = -2.3
+  const boom = new THREE.Group()
+  rbox(0.55, 0.6, 0.9, 0.1, MOW.pinkDark, 0, 1.0, -1.55, boom)
+  rbox(BOOM_W, 0.14, 0.14, 0.06, MOW.pink, 0, 0.95, BOOM_Z, boom)
+  rbox(BOOM_W * 0.86, 0.1, 0.1, 0.04, MOW.pink, 0, 1.38, BOOM_Z, boom)
+  for (let x = -BOOM_W / 2 + 0.3; x <= BOOM_W / 2 - 0.25; x += 0.55) {
+    const d1 = rbox(0.07, 0.5, 0.07, 0.03, MOW.pinkDark, x, 1.165, BOOM_Z, boom)
+    d1.rotation.z = ((x * 10) | 0) % 2 === 0 ? 0.42 : -0.42
+    const nz = new THREE.Mesh(
+      new THREE.CylinderGeometry(0.035, 0.055, 0.2, 8),
+      partMat(MOW.pinkDark),
+    )
+    nz.position.set(x, 0.8, BOOM_Z)
+    boom.add(nz)
+    mowerParts.push(nz.geometry)
+  }
+  rbox(0.11, 0.62, 0.26, 0.05, MOW.pink, -BOOM_W / 2, 1.165, BOOM_Z, boom)
+  rbox(0.11, 0.62, 0.26, 0.05, MOW.pink, BOOM_W / 2, 1.165, BOOM_Z, boom)
+  mower.add(boom)
+
+  // The cutter stays folded away in the garden — a mower towing a live boom
+  // past the flowers reads as though it's about to shred them. It unfolds
+  // during the dive, so it's deployed by the time the game takes over.
+  boom.visible = false
+  boom.scale.set(0, 1, 1)
+
+  mower.scale.setScalar(opt.mowerScale)
+  globe.add(mower)
+
+  // an invisible, generous tap target that rides along with it
+  const mowerPickGeo = new THREE.SphereGeometry(0.17, 10, 8)
+  const mowerPickMat = new THREE.MeshBasicMaterial({
+    colorWrite: false,
+    depthWrite: false,
+  })
+  const mowerPick = new THREE.Mesh(mowerPickGeo, mowerPickMat)
+  globe.add(mowerPick)
+
+  // --- the route it drives: a band around the globe that slowly wanders ---
+  const mowAxis = new THREE.Vector3(0.18, 1, 0.12).normalize()
+  const mowA = new THREE.Vector3()
+    .crossVectors(mowAxis, new THREE.Vector3(1, 0, 0))
+    .normalize()
+  const mowB = new THREE.Vector3().crossVectors(mowAxis, mowA).normalize()
+  let mowT = 0
+
+  const mowDir = new THREE.Vector3()
+  const mowFwd = new THREE.Vector3()
+  const mowRight = new THREE.Vector3()
+  const mowBasis = new THREE.Matrix4()
+  const mowWorld = new THREE.Vector3()
+  const mowFwdW = new THREE.Vector3()
+  const mowWant = new THREE.Vector3()
+  const mowInvQ = new THREE.Quaternion()
+
+  function driveMower(dtSec: number, now: number, rate: number) {
+    // latitude drifts, so it sweeps the globe rather than retracing one line
+    const phi = 1.15 + Math.sin(now * 0.00007) * 0.42
+    const sp = Math.sin(phi),
+      cp = Math.cos(phi)
+    mowT += dtSec * opt.mowerSpeed * rate
+
+    const ct = Math.cos(mowT),
+      st = Math.sin(mowT)
+    mowDir
+      .copy(mowAxis)
+      .multiplyScalar(cp)
+      .addScaledVector(mowA, ct * sp)
+      .addScaledVector(mowB, st * sp)
+      .normalize()
+    mowFwd
+      .copy(mowA)
+      .multiplyScalar(-st)
+      .addScaledVector(mowB, ct)
+      .normalize()
+    mowFwd.addScaledVector(mowDir, -mowFwd.dot(mowDir)).normalize()
+    mowRight.crossVectors(mowDir, mowFwd).normalize()
+
+    mowBasis.makeBasis(mowRight, mowDir, mowFwd)
+    mower.quaternion.setFromRotationMatrix(mowBasis)
+    mower.position.copy(mowDir).multiplyScalar(R)
+    mowerPick.position.copy(mowDir).multiplyScalar(R + 0.1)
+
+    const bob = now * 0.011
+    mower.position.addScaledVector(mowDir, Math.sin(bob) * 0.004)
+    boom.position.y = Math.sin(bob * 1.35 + 1) * 0.03
+    boom.rotation.z = Math.sin(bob * 0.7) * 0.012
+    const linear = (opt.mowerSpeed * rate * R) / opt.mowerScale
+    for (let i = 0; i < spinWheels.length; i++) {
+      spinWheels[i].m.rotation.x += (linear * dtSec) / spinWheels[i].r
+    }
+  }
+
+  /** Park the mower somewhere on the visible face — not dead-center. */
+  function placeMowerInView(
+    now = performance.now(),
+    onlyIfHidden = false,
+  ) {
+    driveMower(0, now, 0)
+    mowWant.copy(mowDir).applyQuaternion(globe.quaternion)
+    if (onlyIfHidden && mowWant.z > 0.22) {
+      mower.visible = true
+      mowerPick.visible = true
+      return
+    }
+
+    mowInvQ.copy(globe.quaternion).invert()
+    mowWant.set(0, 0, 1).applyQuaternion(mowInvQ)
+    const best = Math.atan2(mowB.dot(mowWant), mowA.dot(mowWant))
+
+    for (let i = 0; i < 8; i++) {
+      const spread = 0.85 + Math.random() * 0.7
+      mowT = best + (Math.random() * 2 - 1) * spread
+      driveMower(0, now, 0)
+      mowWant.copy(mowDir).applyQuaternion(globe.quaternion)
+      if (mowWant.z > 0.3) break
+      if (i === 7) {
+        mowT = best + (Math.random() * 2 - 1) * 0.5
+        driveMower(0, now, 0)
+      }
+    }
+    mower.visible = true
+    mowerPick.visible = true
+  }
+  placeMowerInView()
+
   // =============================================================== tooltip
   const tipEl = options.tipEl
   const tipH = options.tipHeadEl
@@ -831,6 +1144,147 @@ function createGrassGlobe(
   }
   if (tipEl) tipEl.addEventListener('pointerup', onTipClick)
 
+  // ============================================== dive-in transition
+  // Built in JS rather than in the page, so this all travels with the
+  // component when it moves into the app.
+
+  const sky = document.createElement('div')
+  sky.style.cssText =
+    'position:absolute;inset:0;pointer-events:none;opacity:0;z-index:4;' +
+    'transition:opacity .45s ease;' +
+    'background:linear-gradient(#4d9fdd 0%,#a8d3ee 55%,#e6f1f6 100%)'
+  container.appendChild(sky)
+
+  let diving = false,
+    dive = 0,
+    fired = false
+
+  // The dive is staged rather than one long blend, so it reads as three beats:
+  // settle (swing the mower round, camera eases back in anticipation),
+  // swoop (accelerate in, decelerate to the landing pose), then hold (the
+  // camera keeps creeping while the sky comes up). Doing all of it at once is
+  // what makes a transition feel mushy.
+  const DIVE_SECS = 3.6
+  const T_SETTLE = 0.42 // mower is facing us by here — nothing dives yet
+  const T_LAND = 0.86 // camera has arrived by here
+
+  function smooth(a: number, b: number, x: number) {
+    const t = Math.max(0, Math.min(1, (x - a) / (b - a)))
+    return t * t * (3 - 2 * t)
+  }
+
+  // Landing pose, in the mower's own units — the same shape as the game's
+  // chase camera (behind, above, aiming a little ahead), so the two views
+  // agree. 45 degrees down, like the game's default preset.
+  const LAND = { back: 0.75, up: 0.75, ahead: 0.3, aimY: 0.05, fov: 50 }
+
+  const camStart = new THREE.Vector3()
+  const camAnchor = new THREE.Vector3()
+  const camEnd = new THREE.Vector3()
+  const lookEnd = new THREE.Vector3()
+  const qStart = new THREE.Quaternion()
+  const qEnd = new THREE.Quaternion()
+  const qGlobe0 = new THREE.Quaternion()
+  const qTwist = new THREE.Quaternion()
+  const twistV = new THREE.Vector3()
+  const Z_AXIS = new THREE.Vector3(0, 0, 1)
+  const qWant = new THREE.Quaternion()
+  const qStep = new THREE.Quaternion()
+  const camRig = new THREE.PerspectiveCamera()
+  const nrmW = new THREE.Vector3()
+  const tmpV = new THREE.Vector3()
+
+  function startDive() {
+    if (diving) return
+    diving = true
+    dive = 0
+    fired = false
+    dragging = false
+    focusQ = null
+    closeTip()
+    camStart.copy(camera.position)
+    qStart.copy(camera.quaternion)
+    qGlobe0.copy(globe.quaternion)
+    spinX = spinY = 0
+  }
+
+  function stepDive(dtSec: number) {
+    dive = Math.min(1, dive + dtSec / DIVE_SECS)
+
+    const settle = smooth(0, T_SETTLE, dive)
+    const u = smooth(T_SETTLE, T_LAND, dive)
+    const hold = smooth(T_LAND, 1, dive)
+
+    mowWorld.copy(mowDir).applyQuaternion(globe.quaternion)
+    qStep.setFromUnitVectors(mowWorld, tmpV.set(0, 0, 1))
+    qWant.copy(qStep).multiply(globe.quaternion)
+
+    twistV.copy(mowFwd).applyQuaternion(qWant)
+    qTwist.setFromAxisAngle(Z_AXIS, Math.atan2(twistV.x, twistV.y))
+    qWant.premultiply(qTwist)
+
+    globe.quaternion.slerpQuaternions(qGlobe0, qWant, settle)
+    globe.updateMatrixWorld()
+
+    mower.getWorldPosition(mowWorld)
+    mowFwdW.copy(mowFwd).applyQuaternion(globe.quaternion).normalize()
+    nrmW.copy(mowDir).applyQuaternion(globe.quaternion).normalize()
+
+    const reach = 1.06 - 0.06 * hold
+    camEnd
+      .copy(mowWorld)
+      .addScaledVector(nrmW, LAND.up * reach)
+      .addScaledVector(mowFwdW, -LAND.back * reach)
+    lookEnd
+      .copy(mowWorld)
+      .addScaledVector(mowFwdW, LAND.ahead)
+      .addScaledVector(nrmW, LAND.aimY)
+
+    camRig.position.copy(camEnd)
+    camRig.up.copy(nrmW)
+    camRig.lookAt(lookEnd)
+    qEnd.copy(camRig.quaternion)
+
+    camAnchor.copy(camStart).multiplyScalar(1 + 0.07 * settle)
+
+    camera.position.lerpVectors(camAnchor, camEnd, u)
+    camera.quaternion.slerpQuaternions(qStart, qEnd, u)
+    camera.fov = 38 + (LAND.fov - 38) * u
+    camera.updateProjectionMatrix()
+    camera.updateMatrixWorld()
+    updateLOD()
+
+    const deploy = smooth(0.46, 0.84, dive)
+    boom.visible = deploy > 0.01
+    boom.scale.set(deploy, 1, 1)
+
+    sky.style.opacity = String(hold)
+
+    if (dive >= 1 && !fired) {
+      fired = true
+      if (opt.onEnterGame) opt.onEnterGame()
+    }
+  }
+
+  function resetView() {
+    diving = false
+    dive = 0
+    fired = false
+    sky.style.opacity = '0'
+    boom.visible = false
+    boom.scale.set(0, 1, 1)
+    camera.fov = 38
+    camera.up.set(0, 1, 0)
+    camera.position.set(0, 0, zoomTarget)
+    camera.lookAt(0, 0, 0)
+    camera.updateProjectionMatrix()
+    camera.updateMatrixWorld()
+    camRight.setFromMatrixColumn(camera.matrixWorld, 0)
+    camUp.setFromMatrixColumn(camera.matrixWorld, 1)
+    updateLOD()
+    poke()
+  }
+
   // ================================================================= input
   const ray = new THREE.Raycaster()
   const ndc = new THREE.Vector2()
@@ -848,7 +1302,6 @@ function createGrassGlobe(
     stampAmt = 0
   const IDLE_SPIN = opt.idleSpin
 
-  const tmpV = new THREE.Vector3()
   const hitW = new THREE.Vector3()
   const hitA = new THREE.Vector3()
   const qTmp = new THREE.Quaternion()
@@ -869,6 +1322,7 @@ function createGrassGlobe(
     setNDC(e)
     cursor.copy(ndc)
     cursorOn = true
+    poke()
   }
 
   function stampCursor() {
@@ -902,6 +1356,7 @@ function createGrassGlobe(
   }
 
   function onDown(e: PointerEvent) {
+    if (diving) return
     dragging = true
     dragDist = 0
     focusQ = null
@@ -918,6 +1373,7 @@ function createGrassGlobe(
     opt.onInteract?.()
   }
   function onMove(e: PointerEvent) {
+    if (diving) return
     const dx = e.clientX - px,
       dy = e.clientY - py
     if (dragging) {
@@ -931,12 +1387,19 @@ function createGrassGlobe(
     py = e.clientY
   }
   function onUp(e: PointerEvent) {
+    poke()
     if (!dragging) return
     dragging = false
     el.classList.remove('grabbing')
     if (dragDist < 6) {
       setNDC(e)
       ray.setFromCamera(ndc, camera)
+
+      // the mower wins ties — it's the way into the game
+      if (mowerPick.visible && ray.intersectObject(mowerPick, false).length) {
+        startDive()
+        return
+      }
       const hits = ray
         .intersectObjects(flowerMeshes, false)
         .filter(function (h) {
@@ -949,15 +1412,19 @@ function createGrassGlobe(
   function onCancel() {
     dragging = false
     el.classList.remove('grabbing')
+    poke()
   }
   function onLeave() {
     cursorOn = false
     stampAmt = 0
+    poke()
   }
 
   let zoomTarget = opt.zoom
   function onWheel(e: WheelEvent) {
     e.preventDefault()
+    if (diving) return
+    poke()
     zoomTarget = Math.max(
       opt.zoomMin,
       Math.min(opt.zoomMax, zoomTarget * Math.exp(e.deltaY * 0.0011)),
@@ -1009,8 +1476,7 @@ function createGrassGlobe(
   const camDir = new THREE.Vector3()
   const camRight = new THREE.Vector3()
   const camUp = new THREE.Vector3()
-  const nrmW = new THREE.Vector3(),
-    proj = new THREE.Vector3(),
+  const proj = new THREE.Vector3(),
     fPos = new THREE.Vector3()
   const invQ = new THREE.Quaternion()
   const gWorld = new THREE.Vector3(0, -0.42, 0)
@@ -1049,7 +1515,8 @@ function createGrassGlobe(
   function updateLOD() {
     const h = el.clientHeight || 1
     const fovR = (camera.fov * Math.PI) / 180
-    const screenR = ((R / camera.position.z) * (h * 0.5)) / Math.tan(fovR * 0.5)
+    const dist = Math.max(0.35, camera.position.length())
+    const screenR = ((R / dist) * (h * 0.5)) / Math.tan(fovR * 0.5)
     const area = Math.PI * screenR * screenR
     const want = Math.max(
       opt.minBlades,
@@ -1064,6 +1531,43 @@ function createGrassGlobe(
   // The phone frame can resize without the window doing so (pager, rotation)
   const ro = new ResizeObserver(resize)
   ro.observe(container)
+
+  // ------------------------------------------------------- power saving
+  let tabVisible = true,
+    onScreen = true,
+    pageActive = true
+  const IDLE_FPS = 24
+
+  function poke() {
+    /* input still pokes so we can reintroduce idle freeze later */
+  }
+
+  function setPageActive(active: boolean) {
+    pageActive = active
+    if (active && !diving) {
+      placeMowerInView(performance.now(), true)
+      poke()
+    }
+  }
+
+  function onVisibility() {
+    tabVisible = !document.hidden
+    poke()
+  }
+  document.addEventListener('visibilitychange', onVisibility)
+
+  let observer: IntersectionObserver | null = null
+  if (window.IntersectionObserver) {
+    observer = new IntersectionObserver(
+      function (entries) {
+        onScreen = entries[0].isIntersecting
+        poke()
+      },
+      { threshold: 0.01 },
+    )
+    observer.observe(container)
+  }
+
   resize()
   camera.updateMatrixWorld()
   camRight.setFromMatrixColumn(camera.matrixWorld, 0)
@@ -1076,6 +1580,18 @@ function createGrassGlobe(
   function frame(now: number) {
     if (!alive) return
     raf = requestAnimationFrame(frame)
+
+    const flying = diving && !fired
+    if (flying) poke()
+    const coasting = dragging || Math.abs(spinX) + Math.abs(spinY) > 2e-4
+    if (!tabVisible || !onScreen || !pageActive) {
+      t0 = now
+      return
+    }
+
+    const fps = flying || coasting ? opt.maxFPS : IDLE_FPS
+    if (now - t0 < 1000 / fps) return
+
     const dt = Math.min((now - t0) / 16.667, 3)
     const dtSec = Math.min((now - t0) / 1000, 0.05)
     t0 = now
@@ -1083,14 +1599,19 @@ function createGrassGlobe(
     U.uTime.value = now * 0.001
 
     // ease toward the zoom target, then rebudget the grass
-    if (Math.abs(zoomTarget - camera.position.z) > 0.0005) {
+    if (!diving && Math.abs(zoomTarget - camera.position.z) > 0.0005) {
       camera.position.z +=
         (zoomTarget - camera.position.z) * (1 - Math.pow(0.8, dt))
       camera.updateMatrixWorld()
       updateLOD()
     }
 
-    if (!dragging) {
+    // it coasts to a halt as you arrive, so the handover is to a parked mower
+    driveMower(dtSec, now, diving ? 1 - smooth(0.05, 0.6, dive) : 1)
+    fieldUniforms.uHit2.value.copy(mowDir)
+    fieldUniforms.uStamp2.value = 0.85
+
+    if (!dragging && !diving) {
       spinY += IDLE_SPIN * dt * 0.35
       spinX *= Math.pow(0.94, dt)
       spinY *= Math.pow(0.94, dt)
@@ -1102,7 +1623,7 @@ function createGrassGlobe(
       globe.quaternion.premultiply(qTmp)
     }
 
-    if (focusQ) {
+    if (focusQ && !diving) {
       globe.quaternion.slerp(focusQ, 1 - Math.pow(0.86, dt))
       if (globe.quaternion.angleTo(focusQ) < 0.002) {
         globe.quaternion.copy(focusQ)
@@ -1162,6 +1683,15 @@ function createGrassGlobe(
       entry.flower.visible = facing
     }
 
+    // the mower: hide it round the back
+    mowerPick.getWorldPosition(mowWorld)
+    nrmW.copy(mowDir).applyQuaternion(globe.quaternion)
+    const mowFacing = nrmW.dot(tmpV.copy(camDir).sub(mowWorld).normalize())
+    mower.visible = mowFacing > -0.25
+    mowerPick.visible = mowFacing > 0.15
+
+    if (diving) stepDive(dtSec)
+
     if (activeFlower) {
       if (!activeFlower.visible) closeTip()
       else if (tipEl) {
@@ -1180,10 +1710,15 @@ function createGrassGlobe(
   return {
     syncFlowers: syncFlowers,
     focusFlower: focusFlower,
+    enterGame: startDive,
+    resetView: resetView,
+    setPageActive: setPageActive,
     dispose: function () {
       alive = false
       cancelAnimationFrame(raf)
       window.removeEventListener('resize', resize)
+      document.removeEventListener('visibilitychange', onVisibility)
+      if (observer) observer.disconnect()
       ro.disconnect()
       el.removeEventListener('pointerdown', onDown)
       el.removeEventListener('pointermove', onMove)
@@ -1210,6 +1745,15 @@ function createGrassGlobe(
       flowerMat.dispose()
       pickGeo.dispose()
       pickMat.dispose()
+      mowerParts.forEach(function (g) {
+        g.dispose()
+      })
+      Object.values(partMats).forEach(function (m) {
+        m.dispose()
+      })
+      mowerPickGeo.dispose()
+      mowerPickMat.dispose()
+      if (sky.parentNode) sky.parentNode.removeChild(sky)
       renderer.dispose()
       if (el.parentNode) el.parentNode.removeChild(el)
     },
@@ -1220,6 +1764,9 @@ export type GrassGlobeProps = {
   flowers: GrassGlobeFlower[]
   onFlowerTap?: (flower: GrassGlobeFlower) => void
   onInteract?: () => void
+  onEnterGame?: () => void
+  /** True while the garden page is on screen. */
+  active?: boolean
   options?: Partial<GrassGlobeOptions>
   hint?: string
   style?: CSSProperties
@@ -1230,6 +1777,8 @@ export default function GrassGlobe({
   flowers,
   onFlowerTap,
   onInteract,
+  onEnterGame,
+  active = true,
   options,
   hint = 'drag to spin · tap a flower',
   style,
@@ -1246,6 +1795,10 @@ export default function GrassGlobe({
   tapRef.current = onFlowerTap
   const interactRef = useRef(onInteract)
   interactRef.current = onInteract
+  const enterRef = useRef(onEnterGame)
+  enterRef.current = onEnterGame
+  const activeRef = useRef(active)
+  activeRef.current = active
 
   const flowersRef = useRef(flowers)
   flowersRef.current = flowers
@@ -1261,6 +1814,9 @@ export default function GrassGlobe({
       syncFlowers: (next: GrassGlobeFlower[]) =>
         globeRef.current?.syncFlowers(next),
       focusFlower: (id: string) => globeRef.current?.focusFlower(id),
+      enterGame: () => globeRef.current?.enterGame(),
+      resetView: () => globeRef.current?.resetView(),
+      setPageActive: (next) => globeRef.current?.setPageActive(next),
     }),
     [],
   )
@@ -1281,12 +1837,14 @@ export default function GrassGlobe({
       flowers: flowersRef.current,
       onFlowerTap: (flower) => tapRef.current?.(flower),
       onInteract: () => interactRef.current?.(),
+      onEnterGame: () => enterRef.current?.(),
       tipEl: tipRef.current,
       tipHeadEl: tipHeadRef.current,
       tipTimeEl: tipTimeRef.current,
       hintEl: hintRef.current,
     })
     globeRef.current = globe
+    globe.setPageActive(activeRef.current)
 
     return () => {
       globeRef.current = null
@@ -1297,6 +1855,10 @@ export default function GrassGlobe({
   useEffect(() => {
     globeRef.current?.syncFlowers(flowers)
   }, [flowers])
+
+  useEffect(() => {
+    globeRef.current?.setPageActive(active)
+  }, [active])
 
   return (
     <div
